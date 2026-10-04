@@ -1,4 +1,4 @@
-"""Ponto de entrada: python -m jarvis [--texto | --google]"""
+"""Ponto de entrada: python -m jarvis [--voz | --texto | --google]"""
 
 from __future__ import annotations
 
@@ -158,9 +158,12 @@ def modo_voz() -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(prog="jarvis", description="J.A.R.V.I.S. — seu assistente pessoal")
-    parser.add_argument("--texto", action="store_true", help="conversar digitando (sem microfone)")
+    parser.add_argument("--voz", action="store_true", help="modo voz no terminal, sem a tela")
+    parser.add_argument("--texto", action="store_true", help="conversar digitando no terminal")
     parser.add_argument("--falar", action="store_true", help="no modo texto, também responder em voz alta")
     parser.add_argument("--google", action="store_true", help="conectar sua conta Google (Gmail/Agenda)")
+    parser.add_argument("--porta", type=int, default=8765, help="porta da tela (padrão 8765)")
+    parser.add_argument("--sem-navegador", action="store_true", help="não abrir o navegador automaticamente")
     args = parser.parse_args()
 
     if args.google:
@@ -173,8 +176,12 @@ def main() -> None:
     _checar_chave()
     if args.texto:
         modo_texto(com_voz=args.falar)
-    else:
+    elif args.voz:
         modo_voz()
+    else:
+        from jarvis.web.server import iniciar
+
+        iniciar(porta=args.porta, abrir_navegador=not args.sem_navegador)
 
 
 if __name__ == "__main__":

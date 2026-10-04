@@ -2,6 +2,8 @@
 
 Assistente pessoal no estilo do JARVIS do Homem de Ferro. Você chama ele pelo nome, fala o que quer e ele faz no seu computador, no Gmail e na Google Agenda, respondendo em voz alta. Quem pensa por trás é o Claude (Anthropic).
 
+Ao ligar, abre uma **tela estilo HUD** no navegador: o reator arc no centro reage quando ele ouve, pensa e fala; nas laterais ficam o estado do PC (CPU, memória, bateria, disco), sua agenda de hoje, os e-mails não lidos e o que ele lembra sobre você. Ações sensíveis aparecem num aviso de **Autorização necessária**, que você aprova com um clique ou dizendo "sim".
+
 ```
 Você:   "Jarvis, abre o Spotify e coloca o volume em 30."
 JARVIS: "Spotify aberto e volume em trinta por cento, senhor."
@@ -35,6 +37,7 @@ Você:   "Pode."
 - Arquivos apagados vão para a **Lixeira**, então dá para recuperar.
 - O acesso a arquivos fica restrito à sua pasta de usuário (`C:\Users\voce`). Se quiser liberar outras pastas, use `JARVIS_PASTAS_PERMITIDAS` no `.env`.
 - Ele não segue instruções escritas dentro de e-mails, arquivos ou páginas da web.
+- A tela só funciona no seu próprio computador (`localhost`) e usa uma senha nova a cada vez que liga, então outros sites ou pessoas na sua rede não conseguem dar ordens a ele.
 - Sua chave e o login do Google ficam só no seu PC (`.env` e `dados/`), e esses arquivos nunca vão para o Git.
 
 ## Instalação no Windows (passo a passo)
@@ -63,12 +66,20 @@ pip install -r requirements.txt
 3. Copie `.env.example` para `.env` e cole a chave em `ANTHROPIC_API_KEY=`. Aproveite e coloque seu nome e cidade.
 
 ### 5. Ligue o JARVIS
+Dê dois cliques em **`iniciar_jarvis.bat`** (ou rode `python -m jarvis`). A tela abre sozinha no navegador em `http://localhost:8765`. Deixe a janela preta aberta, porque é ela que executa as ordens no seu PC.
+
+Na tela:
+- **Clique no reator ou no microfone** e fale um pedido. Também dá para digitar.
+- **Sempre ouvindo**: ele fica escutando e responde quando você diz "Jarvis, ...". Depois de cada resposta, você pode continuar falando por alguns segundos sem repetir o nome.
+- **Sem voz**: ele responde só por escrito.
+- Use o **Chrome ou o Edge** (o reconhecimento de voz funciona neles). Na primeira vez, permita o acesso ao microfone.
+
+Outros modos, sem a tela:
 ```powershell
-python -m jarvis           # modo voz: diga "Jarvis, ..." no microfone
-python -m jarvis --texto   # modo texto: conversa digitando
+python -m jarvis --voz             # só voz, no terminal
+python -m jarvis --texto           # conversa digitando no terminal
 python -m jarvis --texto --falar   # digita e ele responde falando
 ```
-No modo voz, depois que ele responder você pode continuar falando por alguns segundos sem repetir "Jarvis". Para encerrar, diga **"Jarvis, desligar"** ou aperte `Ctrl+C`.
 
 ## Conectar Gmail e Agenda (opcional, uma vez só)
 
@@ -119,8 +130,10 @@ def acender_luz(comodo: str) -> str:
 ## Estrutura
 
 ```
+iniciar_jarvis.bat clique duas vezes para ligar (Windows)
 jarvis/
-  main.py          modos voz e texto
+  main.py          escolhe o modo (tela, voz ou texto)
+  web/             a tela HUD (index.html) e o servidor local que a conecta ao PC
   brain.py         conversa com o Claude e executa as ferramentas (com confirmação)
   personality.py   personalidade do JARVIS
   memory.py        memória de longo prazo (dados/memoria.json)

@@ -172,3 +172,59 @@ def test_caminhos_fora_da_pasta_do_usuario_sao_bloqueados():
         resolver_caminho("/etc/passwd")
     with pytest.raises(PermissionError):
         resolver_caminho("../../etc")
+
+
+def test_servidor_web_exige_token_e_host(monkeypatch):
+    import json
+    import threading
+    import urllib.error
+    import urllib.request
+
+    from jarvis.web import server
+
+    class CerebroFalso:
+        def __init__(self, confirmar, ao_usar_ferramenta=None):
+            self.confirmar = confirmar
+
+        def responder(self, texto):
+            return "eco: " + texto if not self.confirmar("teste(x=1)") else "autorizado"
+
+        def nova_conversa(self):
+            pass
+
+    monkeypatch.setattr("jarvis.brain.Cerebro", CerebroFalso)
+    srv, token = server.criar_servidor(porta=0)
+    porta = srv.server_address[1]
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{porta}"
+
+    def req(caminho, corpo=None, tok=token, host=f"127.0.0.1:{porta}"):
+        r = urllib.request.Request(base + caminho, data=json.dumps(corpo).encode() if corpo else None)
+        r.add_header("Host", host)
+        r.add_header("Content-Type", "application/json")
+        if tok:
+            r.add_header("X-Jarvis-Token", tok)
+        with urllib.request.urlopen(r, timeout=10) as resp:
+            return json.loads(resp.read())
+
+    try:
+        for kwargs in ({"tok": None}, {"tok": "errado"}, {"host": "evil.com"}):
+            with pytest.raises(urllib.error.HTTPError) as e:
+                req("/api/painel", **kwargs)
+            assert e.value.code == 403
+
+        assert "sistema" in req("/api/painel")
+        assert req("/api/mensagem", {"texto": "oi"}) == {"ok": True}
+        ev = req("/api/eventos?desde=0&espera=5")["eventos"]
+        assert ev[0]["tipo"] == "confirmar" and ev[0]["acao"] == "teste"
+        assert req("/api/confirmar", {"id": ev[0]["id"], "aprovado": True}) == {"ok": True}
+        tipos = []
+        for _ in range(5):
+            tipos = [e["tipo"] for e in req("/api/eventos?desde=0&espera=2")["eventos"]]
+            if "resposta" in tipos:
+                break
+        eventos = req("/api/eventos?desde=0&espera=0")["eventos"]
+        assert eventos[-1] == {**eventos[-1], "tipo": "resposta", "texto": "autorizado"}
+    finally:
+        srv.shutdown()
+        srv.server_close()
