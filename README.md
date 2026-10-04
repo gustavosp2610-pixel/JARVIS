@@ -27,6 +27,7 @@ Você:   "Pode."
 | Gmail | "tenho e-mails não lidos?", "lê o último e-mail do banco", "responde pro Carlos dizendo que topo" |
 | Agenda | "o que tenho hoje?", "marca dentista sexta às 15h" |
 | Internet | "qual a previsão do tempo?", "quais as notícias de hoje?", "quanto tá o dólar?" |
+| Qualquer pergunta | "como funciona um buraco negro?", "me explica juros compostos", "escreve um código em Python que…", "me ajuda a estudar para a prova de história" |
 | Memória | "lembra que minha academia é às 7h", "o que você lembra sobre mim?", "esquece isso da academia" |
 | Timers | "me lembra de tirar o bolo do forno em 40 minutos" |
 | Avançado | "roda um comando do PowerShell que mostre meu IP" |
@@ -103,7 +104,7 @@ Tudo fica no `.env`:
 | `JARVIS_NOME_USUARIO` | Como ele te chama ("senhor", "Gustavo", "chefe"...) |
 | `JARVIS_VOZ` | Voz da fala. Ex.: `pt-BR-AntonioNeural`, `pt-BR-FranciscaNeural`, `en-GB-RyanNeural` (sotaque britânico como no filme) |
 | `JARVIS_PALAVRA_ATIVACAO` | A palavra que acorda o assistente |
-| `JARVIS_ESFORCO` | `low` responde mais rápido e gasta menos; `medium` ou `high` pensa mais em tarefas complexas |
+| `JARVIS_ESFORCO` | `medium` (padrão) equilibra rapidez e qualidade; `low` responde mais rápido e gasta menos; `high` pensa mais nas perguntas difíceis |
 | `JARVIS_PESQUISA_WEB` | `false` desliga a pesquisa na internet |
 
 A personalidade está em `jarvis/personality.py`.

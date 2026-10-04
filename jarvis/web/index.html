@@ -387,7 +387,7 @@ body[data-modo="ouvindo"] .estado .t { color: var(--ok); text-shadow: 0 0 12px v
   </header>
 
   <p class="faixa-demo" id="faixa-demo" hidden>
-    Pré-visualização com dados de exemplo: nada acontece no seu computador.
+    Versão online: responde de verdade com o Claude da sua conta, mas os painéis mostram dados de exemplo e nada acontece no seu computador.
     Para o JARVIS de verdade, rode <code>python -m jarvis</code> no seu PC (veja o README).
   </p>
 
@@ -873,20 +873,31 @@ body[data-modo="ouvindo"] .estado .t { color: var(--ok); text-shadow: 0 0 12px v
     }
   }
 
+  function paraFala(texto) {
+    // Fala só o começo de respostas longas; o texto completo fica na tela.
+    let t = texto.replace(/```[\s\S]*?```/g, " (código na tela) ").replace(/[#*_`>|]/g, "");
+    if (t.length > 700) {
+      const corte = t.slice(0, 700).lastIndexOf(". ");
+      t = t.slice(0, corte > 200 ? corte + 1 : 700) + " O resto está na tela, senhor.";
+    }
+    return t;
+  }
+  function concluirResposta(texto, jaExibida = false) {
+    passosAtuais = null;
+    if (stats.enviadoEm) { stats.latencia = (performance.now() - stats.enviadoEm) / 1000; stats.enviadoEm = 0; }
+    if (!jaExibida) addMsg("jarvis", texto, true);
+    registrar("resposta entregue", "ok");
+    if (!DEMO) chip("ia", /chave de acesso|problema técnico|conexão/i.test(texto) ? "warn" : "on");
+    setModo("ocioso");
+    falar(paraFala(texto));
+    atualizarTicker();
+    if (!DEMO) setTimeout(atualizarPainel, 600);
+  }
+
   let pendente = null;
   function tratarEvento(ev) {
     if (ev.tipo === "ferramenta") addPasso(ev.nome);
-    else if (ev.tipo === "resposta") {
-      passosAtuais = null;
-      if (stats.enviadoEm) { stats.latencia = (performance.now() - stats.enviadoEm) / 1000; stats.enviadoEm = 0; }
-      addMsg("jarvis", ev.texto, true);
-      registrar("resposta entregue", "ok");
-      chip("ia", /chave de acesso|problema técnico|conexão/i.test(ev.texto) ? "warn" : "on");
-      setModo("ocioso");
-      falar(ev.texto);
-      atualizarTicker();
-      if (!DEMO) setTimeout(atualizarPainel, 600);
-    } else if (ev.tipo === "aviso") {
+    else if (ev.tipo === "resposta") concluirResposta(ev.texto); else if (ev.tipo === "aviso") {
       addMsg("aviso", ev.texto);
       registrar("lembrete: " + ev.texto, "aut");
       falar(ev.texto);
@@ -935,6 +946,7 @@ body[data-modo="ouvindo"] .estado .t { color: var(--ok); text-shadow: 0 0 12px v
   }
   async function novaConversa() {
     if (!DEMO) { try { await api("/api/nova-conversa", {}); } catch (e) { return toast(e.message); } }
+    ctlIA?.abort(); turnos.length = 0;
     conversa.replaceChildren();
     registrar("memória de curto prazo limpa");
     addMsg("jarvis", "Conversa reiniciada. Em que posso ajudar, senhor?", true);
@@ -1214,8 +1226,70 @@ body[data-modo="ouvindo"] .estado .t { color: var(--ok); text-shadow: 0 0 12px v
   }
   const espera = (ms) => new Promise((ok) => setTimeout(ok, ms));
   let demoAposDecidir = null;
+  // Na pré-visualização online, as perguntas vão para o Claude da conta de quem está vendo.
+  const INSTRUCOES = `Você é J.A.R.V.I.S. (Just A Rather Very Intelligent System), o assistente pessoal do usuário, inspirado no JARVIS de Tony Stark: um mordomo britânico refinado, leal, calmo e com humor seco e sutil. Trate o usuário por "senhor" e fale sempre em português do Brasil.
+
+Você é um assistente de IA completo. Responda QUALQUER pergunta, sobre qualquer assunto (ciência, história, tecnologia, programação, matemática, saúde, dinheiro, estudos, idiomas, culinária, esportes, conselhos, curiosidades), com precisão e conhecimento de especialista. Comece direto pela resposta. Para perguntas simples, responda em 1 a 3 frases; quando o pedido exigir detalhe (explicações, passo a passo, código, textos, listas), responda completo. Escreva em texto simples: nada de títulos com # nem negrito com **; listas com hífen são aceitáveis. Se não tiver certeza, ou se o assunto depender de acontecimentos muito recentes, diga isso claramente em vez de inventar.
+
+Contexto: esta é a versão online de demonstração do JARVIS. Aqui você não controla o computador, o e-mail nem a agenda do usuário. Se pedirem esse tipo de ação, diga em uma frase que na versão instalada no PC você faria isso, e ajude no que der (por exemplo, escrevendo o texto do e-mail). Cada mensagem do usuário começa com a data e a hora atuais entre colchetes.`;
+  let sampleFn = null, sampleAtivo = true, ctlIA = null;
+  const turnos = [];
+  if (DEMO && window.claude?.use) {
+    window.claude.use("sample").then((f) => {
+      sampleFn = f;
+      if (f) { chip("ia", "on"); registrar("núcleo IA conectado", "ok"); }
+    }).catch(() => {});
+  }
+  const ERROS_IA = {
+    not_granted: "Para eu responder de verdade aqui, permita o uso do Claude quando a página pedir. Até lá, uso respostas de exemplo.",
+    sampling_disabled: "O Claude não está disponível para esta conta, senhor. Uso respostas de exemplo por enquanto.",
+    rate_limited: "Muitas perguntas seguidas, senhor. Espere um instante e pergunte de novo.",
+    session_expired: "Sua sessão do claude.ai expirou. Entre de novo para eu voltar a responder.",
+    refused: "Receio que não posso ajudar com isso, senhor.",
+    prompt_too_large: "Nossa conversa ficou longa demais. Clique em Nova conversa e pergunte de novo.",
+  };
+  async function perguntarIA(texto) {
+    const agora = new Date().toLocaleString("pt-BR", { dateStyle: "full", timeStyle: "short" });
+    turnos.push({ role: "user", content: `[${agora}] ${texto}` });
+    while (turnos.length > 24) turnos.shift();
+    while (turnos.length && turnos[0].role !== "user") turnos.shift();
+    const msg = addMsg("jarvis", "");
+    const p = msg.querySelector("p");
+    p.textContent = "Pensando"; p.classList.add("cursor");
+    registrar("consultando núcleo IA", "ferr");
+    ctlIA = new AbortController();
+    try {
+      const { text, truncated } = await sampleFn([{ role: "user", content: INSTRUCOES }, ...turnos], {
+        cache: false,
+        signal: ctlIA.signal,
+        onText: ({ text }) => { p.textContent = text; conversa.scrollTop = conversa.scrollHeight; reator.pulso = 0.6; },
+      });
+      p.classList.remove("cursor");
+      turnos.push({ role: "assistant", content: text });
+      concluirResposta(truncated ? text + "\n\n(Resposta cortada por ser longa demais. Peça a continuação.)" : text, true);
+      if (truncated) p.textContent = text + "\n\n(Resposta cortada por ser longa demais. Peça a continuação.)";
+      return true;
+    } catch (e) {
+      p.classList.remove("cursor");
+      turnos.pop();
+      if (["not_granted", "sampling_disabled", "not_declared", "capability_disabled", "capability_removed"].includes(e.code)) {
+        sampleAtivo = false; chip("ia", "warn");
+        msg.remove();
+        toast(ERROS_IA[e.code] || ERROS_IA.sampling_disabled);
+        return false;
+      }
+      if (e.code === "cancelled") { p.textContent = e.text || "(interrompido)"; setModo("ocioso"); return true; }
+      p.textContent = e.text ? e.text + "\n\n(interrompido)" : (ERROS_IA[e.code] || "Perdi a conexão com meu núcleo por um instante, senhor. Pergunte de novo.");
+      registrar("falha no núcleo IA: " + e.code, "nao");
+      setModo("ocioso");
+      return true;
+    }
+  }
+
   async function demoResponder(texto) {
     const n = norm(texto);
+    const acaoNoPc = /(manda|envia|enviar|mande).*(e-?mail)|(e-?mail).*(pro|para)|(apaga|deleta|exclui|desliga|reinicia)/.test(n);
+    if (!acaoNoPc && sampleFn && sampleAtivo && (await perguntarIA(texto))) return;
     await espera(700);
     const passos = async (...nomes) => { for (const x of nomes) { tratarEvento({ tipo: "ferramenta", nome: x }); await espera(450); } };
     if (/(manda|envia|enviar|mande).*(e-?mail)|(e-?mail).*(pro|para)/.test(n)) {
@@ -1254,9 +1328,7 @@ body[data-modo="ouvindo"] .estado .t { color: var(--ok); text-shadow: 0 0 12px v
     $("#faixa-demo").hidden = false;
     chip("ia", "warn"); chip("pc", "warn");
     registrar("modo pré-visualização", "aut");
-    addMsg("voce", "Jarvis, o que tenho hoje?");
-    addMsg("jarvis", "Bom dia, senhor. Reunião com a equipe às dez, almoço com a Ana ao meio-dia e meia e dentista às quatro. Também há três e-mails não lidos.");
-    addMsg("jarvis", "Esta é uma pré-visualização com dados de exemplo. Experimente digitar “abre o Spotify” ou “manda um e-mail pro Carlos”.");
+    addMsg("jarvis", "Sistemas online, senhor. Pergunte o que quiser: ciência, história, programação, dinheiro, saúde, o que for. Aqui na versão online eu respondo usando o Claude da sua conta; para controlar o seu computador, use a versão instalada no PC.");
   } else {
     addMsg("jarvis", "Sistemas online. Às suas ordens, senhor.");
     ouvirEventos();
