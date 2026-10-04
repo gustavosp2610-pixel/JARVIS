@@ -1,316 +1,457 @@
 <title>J.A.R.V.I.S.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Barlow:wght@400;500;600&family=Share+Tech+Mono&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Chakra+Petch:wght@400;500;600;700&family=Barlow:wght@400;500;600&family=Share+Tech+Mono&display=swap">
 <style>
-/* Layout: a workshop HUD — status rails left and right, the arc reactor and the conversation in the middle, the command bar docked at the bottom. Single dark look on purpose (Stark lab). */
+/* Layout: Stark-lab holographic HUD. Live hex/particle field behind everything; status rails left and right; the arc reactor stage and conversation in the centre; command console docked at the bottom with a telemetry ticker. Single dark look on purpose. */
 :root {
-  --void: #04070c;
-  --plate: #0a121c;
-  --plate-2: #0f1a27;
-  --line: #17344a;
-  --ink: #d4ecf7;
-  --ink-dim: #7f9fb2;
-  --arc: #62dcff;
-  --arc-deep: #1b7fa6;
-  --gold: #f4b544;
-  --hot: #ff5468;
-  --ok: #4fe0a0;
+  --void: #02050a;
+  --void-2: #050b14;
+  --plate: rgba(8, 20, 33, 0.78);
+  --plate-solid: #081421;
+  --line: #15405c;
+  --ink: #d8f1fb;
+  --ink-dim: #7fa6ba;
+  --arc: #5fe3ff;
+  --arc-hi: #b9f6ff;
+  --arc-deep: #1a86b0;
+  --gold: #ffb840;
+  --hot: #ff3d5a;
+  --ok: #46f0a4;
+  --f-title: "Orbitron", "Chakra Petch", "Bahnschrift", sans-serif;
   --f-display: "Chakra Petch", "Bahnschrift", "Segoe UI", system-ui, sans-serif;
   --f-body: "Barlow", "Segoe UI", system-ui, sans-serif;
   --f-data: "Share Tech Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
-  --r: 4px;
+  --corte: 14px;
   color-scheme: dark;
-}
-html, body { height: 100%; }
-body {
-  margin: 0;
-  background:
-    radial-gradient(1200px 700px at 50% 38%, rgba(98, 220, 255, 0.07), transparent 60%),
-    repeating-linear-gradient(0deg, rgba(98, 220, 255, 0.025) 0 1px, transparent 1px 48px),
-    repeating-linear-gradient(90deg, rgba(98, 220, 255, 0.025) 0 1px, transparent 1px 48px),
-    var(--void);
-  color: var(--ink);
-  font: 400 15px/1.5 var(--f-body);
-  -webkit-font-smoothing: antialiased;
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: radial-gradient(1400px 900px at 50% 30%, #071a2a 0%, var(--void-2) 45%, var(--void) 100%) fixed, var(--void);
+  color: var(--ink);
+  font: 400 15px/1.5 var(--f-body);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
 button, input { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--arc); outline-offset: 2px; }
 
+/* ---------- ambient layers ---------- */
+#fundo { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+.scanlines {
+  position: fixed; inset: 0; z-index: 30; pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(95, 227, 255, 0.035) 0 1px, transparent 1px 3px);
+  mix-blend-mode: screen;
+}
+.scanlines::after {
+  content: ""; position: absolute; left: 0; right: 0; height: 140px; top: -140px;
+  background: linear-gradient(180deg, transparent, rgba(95, 227, 255, 0.06), transparent);
+  animation: varredura 7s linear infinite;
+}
+@keyframes varredura { to { transform: translateY(calc(100vh + 140px)); } }
+.moldura { position: fixed; inset: 8px; z-index: 2; pointer-events: none; }
+.moldura i { position: absolute; width: 46px; height: 46px; border: 2px solid var(--arc); opacity: 0.55; }
+.moldura i:nth-child(1) { top: 0; left: 0; border-right: 0; border-bottom: 0; }
+.moldura i:nth-child(2) { top: 0; right: 0; border-left: 0; border-bottom: 0; }
+.moldura i:nth-child(3) { bottom: 0; left: 0; border-right: 0; border-top: 0; }
+.moldura i:nth-child(4) { bottom: 0; right: 0; border-left: 0; border-top: 0; }
+
+/* ---------- boot ---------- */
+.boot {
+  position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 16px;
+  background: rgba(2, 5, 10, 0.86); backdrop-filter: blur(4px);
+  transition: opacity 0.6s ease, visibility 0.6s;
+}
+.boot.fim { opacity: 0; visibility: hidden; }
+.boot pre {
+  margin: 0; width: min(620px, 100%); white-space: pre-wrap; overflow-wrap: anywhere;
+  font: 400 14px/1.7 var(--f-data); color: var(--arc);
+  text-shadow: 0 0 8px rgba(95, 227, 255, 0.6);
+}
+.boot pre b { color: var(--ok); font-weight: 400; }
+.boot pre em { color: var(--gold); font-style: normal; }
+.boot .pular { position: absolute; bottom: 24px; right: 24px; font: 500 11px/1 var(--f-display); letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-dim); background: none; border: 1px solid var(--line); padding: 8px 12px; cursor: pointer; }
+
+/* ---------- app shell ---------- */
 .app {
-  height: 100%;
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-  gap: 14px;
-  padding-block: 14px;
-  padding-inline: max(16px, 2vw);
-  max-width: 1500px;
-  margin: 0 auto;
+  position: relative; z-index: 1;
+  min-height: 100%;
+  display: flex; flex-direction: column; gap: 14px;
+  padding-block: 18px 0;
+  padding-inline: max(20px, 2.2vw);
+  max-width: 1600px; margin: 0 auto;
 }
 
-/* ---------- top bar ---------- */
-.topo { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-.marca { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+/* top bar */
+.topo { display: flex; align-items: center; justify-content: space-between; gap: 14px 24px; flex-wrap: wrap; }
+.marca { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.selo { width: 44px; height: 44px; flex: none; }
 .marca h1 {
-  margin: 0;
-  font: 700 26px/1 var(--f-display);
-  letter-spacing: 0.32em;
-  color: var(--arc);
-  text-shadow: 0 0 18px rgba(98, 220, 255, 0.45);
+  position: relative; margin: 0;
+  font: 800 28px/1 var(--f-title); letter-spacing: 0.28em;
+  color: var(--arc-hi);
+  text-shadow: 0 0 6px var(--arc), 0 0 24px rgba(95, 227, 255, 0.55);
 }
-.marca span { font: 500 11px/1 var(--f-display); letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-dim); }
-.relogio { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
-.relogio .hora { font: 400 28px/1 var(--f-data); color: var(--ink); font-variant-numeric: tabular-nums; }
-.relogio .data { font: 500 12px/1.3 var(--f-display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-dim); }
+.marca h1::before, .marca h1::after {
+  content: attr(data-texto); position: absolute; inset: 0; pointer-events: none; opacity: 0;
+}
+.marca h1::before { color: var(--hot); animation: glitch-a 6.5s infinite steps(1); }
+.marca h1::after { color: var(--arc); animation: glitch-b 6.5s infinite steps(1); }
+@keyframes glitch-a {
+  0%, 91%, 100% { opacity: 0; transform: none; clip-path: inset(0 0 0 0); }
+  92% { opacity: 0.8; transform: translate(-3px, 1px); clip-path: inset(10% 0 55% 0); }
+  94% { opacity: 0.8; transform: translate(3px, -1px); clip-path: inset(60% 0 8% 0); }
+  96% { opacity: 0.6; transform: translate(-2px, 0); clip-path: inset(35% 0 40% 0); }
+}
+@keyframes glitch-b {
+  0%, 92%, 100% { opacity: 0; transform: none; clip-path: inset(0 0 0 0); }
+  93% { opacity: 0.8; transform: translate(3px, 0); clip-path: inset(50% 0 20% 0); }
+  95% { opacity: 0.7; transform: translate(-3px, 1px); clip-path: inset(5% 0 70% 0); }
+}
+.marca .sub { display: block; margin-top: 6px; font: 500 10.5px/1 var(--f-display); letter-spacing: 0.3em; text-transform: uppercase; color: var(--ink-dim); }
+.topo-dir { display: flex; align-items: center; gap: 12px 22px; flex-wrap: wrap; }
 .chips { display: flex; gap: 8px; flex-wrap: wrap; }
 .chip {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 4px 9px; border: 1px solid var(--line); border-radius: 99px;
-  font: 500 11px/1 var(--f-display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-dim);
+  display: inline-flex; align-items: center; gap: 7px; padding: 5px 10px;
+  border: 1px solid var(--line); background: rgba(8, 20, 33, 0.6);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  font: 600 10.5px/1 var(--f-display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-dim);
 }
-.chip i { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-dim); }
-.chip.on i { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
-.chip.warn i { background: var(--gold); box-shadow: 0 0 8px var(--gold); }
+.chip i { width: 7px; height: 7px; background: var(--ink-dim); transform: rotate(45deg); }
+.chip.on { color: var(--ink); }
+.chip.on i { background: var(--ok); box-shadow: 0 0 10px var(--ok); animation: piscar 2.4s infinite; }
+.chip.warn i { background: var(--gold); box-shadow: 0 0 10px var(--gold); }
+@keyframes piscar { 50% { opacity: 0.35; } }
+.relogio { text-align: right; }
+.relogio .hora { font: 400 32px/1 var(--f-data); font-variant-numeric: tabular-nums; color: var(--arc-hi); text-shadow: 0 0 14px rgba(95, 227, 255, 0.5); }
+.relogio .data { margin-top: 4px; font: 600 11px/1 var(--f-display); letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-dim); }
 
 .faixa-demo {
-  grid-column: 1 / -1;
-  border: 1px dashed var(--gold); color: var(--gold);
-  padding: 8px 12px; border-radius: var(--r);
-  font: 500 13px/1.45 var(--f-body);
+  margin: 0; border: 1px dashed var(--gold); color: var(--gold); background: rgba(255, 184, 64, 0.06);
+  padding: 8px 12px; font: 500 13px/1.45 var(--f-body);
 }
 .faixa-demo code { font-family: var(--f-data); color: var(--ink); }
 
-/* ---------- main grid ---------- */
-.centro-grid {
+/* ---------- grid ---------- */
+.grade {
   display: grid;
-  grid-template-columns: minmax(230px, 1fr) minmax(0, 1.6fr) minmax(230px, 1fr);
-  gap: 14px;
-  min-height: 0;
+  grid-template-columns: minmax(260px, 1fr) minmax(0, 1.75fr) minmax(260px, 1fr);
+  gap: 18px;
+  align-items: start;
 }
-.coluna { display: flex; flex-direction: column; gap: 14px; min-height: 0; min-width: 0; overflow-y: auto; scrollbar-width: thin; }
+.lado { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 
+/* holographic panel: cut corners + gradient border via mask */
 .painel {
-  position: relative;
-  background: linear-gradient(180deg, rgba(15, 26, 39, 0.92), rgba(10, 18, 28, 0.92));
-  border: 1px solid var(--line);
-  border-radius: var(--r);
-  padding: 14px 14px 12px;
+  position: relative; min-width: 0;
+  padding: 14px 16px 14px;
+  background:
+    linear-gradient(180deg, rgba(95, 227, 255, 0.07), transparent 38px),
+    var(--plate);
+  clip-path: polygon(0 0, calc(100% - var(--corte)) 0, 100% var(--corte), 100% 100%, var(--corte) 100%, 0 calc(100% - var(--corte)));
+  backdrop-filter: blur(2px);
 }
-.painel::before, .painel::after {
-  content: ""; position: absolute; width: 12px; height: 12px; border: 2px solid var(--arc); opacity: 0.7;
+.painel::before {
+  content: ""; position: absolute; inset: 0; padding: 1px; pointer-events: none;
+  background: linear-gradient(120deg, var(--line) 0%, var(--line) 40%, var(--arc) 50%, var(--line) 60%, var(--line) 100%) 0 0 / 300% 100%;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  clip-path: inherit;
+  animation: brilho-borda 6s linear infinite;
 }
-.painel::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
-.painel::after { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
+.painel::after {
+  content: ""; position: absolute; top: 0; right: 0; width: calc(var(--corte) * 1.42); height: 2px;
+  background: var(--arc); transform-origin: right top; transform: rotate(-45deg);
+  box-shadow: 0 0 8px var(--arc);
+}
+@keyframes brilho-borda { to { background-position: -300% 0; } }
 .painel h2 {
-  margin: 0 0 10px; display: flex; justify-content: space-between; align-items: center; gap: 8px;
-  font: 600 12px/1 var(--f-display); letter-spacing: 0.2em; text-transform: uppercase; color: var(--arc);
+  margin: 0 0 12px; display: flex; align-items: center; gap: 10px;
+  font: 700 12px/1 var(--f-display); letter-spacing: 0.24em; text-transform: uppercase; color: var(--arc);
 }
-.painel h2 small { font: 400 11px/1 var(--f-data); letter-spacing: 0.04em; color: var(--ink-dim); text-transform: none; }
+.painel h2::before { content: ""; width: 8px; height: 8px; background: var(--arc); box-shadow: 0 0 8px var(--arc); transform: rotate(45deg); flex: none; }
+.painel h2 .tag { margin-left: auto; font: 400 11px/1 var(--f-data); letter-spacing: 0.04em; text-transform: none; color: var(--ink-dim); }
 .vazio { color: var(--ink-dim); font-size: 13.5px; margin: 0; }
+.exemplo { font: 700 9.5px/1 var(--f-display); letter-spacing: 0.16em; color: var(--gold); border: 1px solid var(--gold); padding: 3px 5px; }
 
-/* system meters */
-.medidor { display: grid; grid-template-columns: 74px 1fr auto; align-items: center; gap: 10px; padding: 5px 0; }
-.medidor .rot { font: 500 11px/1 var(--f-display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-dim); }
-.medidor .val { font: 400 15px/1 var(--f-data); text-align: right; font-variant-numeric: tabular-nums; }
-.barra { height: 8px; background: repeating-linear-gradient(90deg, var(--plate-2) 0 6px, transparent 6px 8px); position: relative; overflow: hidden; }
-.barra b {
-  position: absolute; inset: 0 auto 0 0; width: 0%;
-  background: repeating-linear-gradient(90deg, var(--arc) 0 6px, transparent 6px 8px);
-  box-shadow: 0 0 10px rgba(98, 220, 255, 0.5);
-  transition: width 0.8s ease;
-}
-.barra.alerta b { background: repeating-linear-gradient(90deg, var(--gold) 0 6px, transparent 6px 8px); }
-.barra.critico b { background: repeating-linear-gradient(90deg, var(--hot) 0 6px, transparent 6px 8px); }
-.sis-nome { margin: 8px 0 0; font: 400 12px/1.3 var(--f-data); color: var(--ink-dim); }
+/* dials */
+.dials { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.dial { position: relative; text-align: center; min-width: 0; }
+.dial svg { width: 100%; max-width: 84px; aspect-ratio: 1; display: block; margin: 0 auto; overflow: visible; }
+.dial .trilho { fill: none; stroke: rgba(21, 64, 92, 0.9); stroke-width: 6; }
+.dial .marcas { fill: none; stroke: var(--arc-deep); stroke-width: 3; stroke-dasharray: 1 5.28; }
+.dial .valor { fill: none; stroke: var(--arc); stroke-width: 6; stroke-linecap: butt; transform: rotate(-90deg); transform-origin: 50% 50%; transition: stroke-dashoffset 0.9s cubic-bezier(.2,.8,.2,1), stroke 0.3s; filter: drop-shadow(0 0 4px var(--arc)); }
+.dial.alerta .valor { stroke: var(--gold); filter: drop-shadow(0 0 4px var(--gold)); }
+.dial.critico .valor { stroke: var(--hot); filter: drop-shadow(0 0 4px var(--hot)); }
+.dial .giro { fill: none; stroke: var(--arc); stroke-width: 1; stroke-dasharray: 8 40; opacity: 0.6; transform-origin: 50% 50%; animation: girar 9s linear infinite; }
+@keyframes girar { to { transform: rotate(360deg); } }
+.dial .num { position: absolute; left: 0; right: 0; top: 0; aspect-ratio: 1; max-width: 84px; margin: 0 auto; display: grid; place-items: center; font: 400 15px/1 var(--f-data); font-variant-numeric: tabular-nums; color: var(--arc-hi); }
+.dial .rot { display: block; margin-top: 6px; font: 600 9.5px/1.2 var(--f-display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-dim); }
+.grafico { margin-top: 12px; }
+.grafico .cab { display: flex; justify-content: space-between; font: 600 9.5px/1 var(--f-display); letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 6px; }
+.grafico .cab span:last-child { font: 400 11px/1 var(--f-data); letter-spacing: 0; color: var(--arc); }
+#cpu-hist { width: 100%; height: 54px; display: block; }
+.sis-nome { margin: 8px 0 0; font: 400 11.5px/1.3 var(--f-data); color: var(--ink-dim); }
 
 /* lists */
 .lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-.lista li { display: grid; grid-template-columns: 54px 1fr; gap: 10px; padding: 8px 0; border-top: 1px solid rgba(23, 52, 74, 0.7); min-width: 0; }
-.lista li:first-child { border-top: 0; padding-top: 2px; }
+.lista li { display: grid; grid-template-columns: 58px 1fr; gap: 10px; padding: 8px 0; border-top: 1px solid rgba(21, 64, 92, 0.6); min-width: 0; }
+.lista li:first-child { border-top: 0; padding-top: 0; }
+.lista li.vazia, .lista.memorias li.vazia { grid-template-columns: 1fr; }
 .lista .quando { font: 400 14px/1.35 var(--f-data); color: var(--arc); font-variant-numeric: tabular-nums; }
 .lista .tit { font-weight: 600; overflow-wrap: anywhere; }
 .lista .sub { color: var(--ink-dim); font-size: 13px; overflow-wrap: anywhere; }
 .lista.emails li { grid-template-columns: 1fr; gap: 1px; }
 .lista.memorias li { grid-template-columns: 12px 1fr; }
-.lista.memorias li.vazia { grid-template-columns: 1fr; }
-.lista.memorias li.vazia::before { content: none; }
-.lista.memorias li::before { content: ""; width: 6px; height: 6px; margin-top: 8px; background: var(--arc); transform: rotate(45deg); }
-.exemplo { font: 600 10px/1 var(--f-display); letter-spacing: 0.14em; color: var(--gold); border: 1px solid var(--gold); padding: 3px 5px; border-radius: 2px; }
+.lista.memorias li:not(.vazia)::before { content: ""; width: 6px; height: 6px; margin-top: 8px; background: var(--arc); transform: rotate(45deg); box-shadow: 0 0 6px var(--arc); }
 
-/* ---------- center: reactor + conversation ---------- */
-.nucleo { display: flex; flex-direction: column; gap: 12px; min-height: 0; min-width: 0; }
-.reator-caixa { position: relative; display: grid; place-items: center; }
-#reator { width: min(100%, 330px); aspect-ratio: 1; max-width: 100%; cursor: pointer; border-radius: 50%; }
-.estado {
-  text-align: center; margin-top: -4px;
-  font: 600 13px/1 var(--f-display); letter-spacing: 0.3em; text-transform: uppercase; color: var(--arc);
+/* operations log */
+.registro { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; max-height: 190px; overflow-y: auto; overflow-x: hidden; font: 400 12px/1.45 var(--f-data); scrollbar-width: thin; }
+.registro li { display: grid; grid-template-columns: 62px 1fr; gap: 8px; color: var(--ink-dim); min-width: 0; }
+.registro li span:last-child { overflow-wrap: anywhere; }
+.registro li.ferr span:last-child { color: var(--arc); }
+.registro li.aut span:last-child { color: var(--gold); }
+.registro li.ok span:last-child { color: var(--ok); }
+.registro li.nao span:last-child { color: var(--hot); }
+
+/* ---------- centre ---------- */
+.nucleo { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.palco { position: relative; width: min(100%, 460px); aspect-ratio: 1; margin: 0 auto; max-width: 100%; }
+#reator { position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer; border-radius: 50%; }
+.leitura {
+  position: absolute; font: 400 11px/1.35 var(--f-data); color: var(--ink-dim); pointer-events: none;
+  font-variant-numeric: tabular-nums; text-transform: uppercase; letter-spacing: 0.06em;
 }
-.estado small { display: block; margin-top: 6px; font: 400 12.5px/1.3 var(--f-body); letter-spacing: 0.02em; text-transform: none; color: var(--ink-dim); min-height: 1.3em; }
-body[data-modo="pensando"] .estado { color: var(--gold); }
+.leitura b { display: block; font: 400 15px/1.1 var(--f-data); color: var(--arc-hi); letter-spacing: 0; }
+.leitura.l1 { top: 4%; left: 0; } .leitura.l2 { top: 4%; right: 0; text-align: right; }
+.leitura.l3 { bottom: 4%; left: 0; } .leitura.l4 { bottom: 4%; right: 0; text-align: right; }
+.estado { text-align: center; }
+.estado .t { font: 700 15px/1 var(--f-title); letter-spacing: 0.42em; text-transform: uppercase; color: var(--arc-hi); text-shadow: 0 0 12px var(--arc); }
+.estado small { display: block; margin-top: 7px; font: 400 13px/1.3 var(--f-body); color: var(--ink-dim); min-height: 1.3em; }
+body[data-modo="pensando"] .estado .t { color: var(--gold); text-shadow: 0 0 12px var(--gold); }
+body[data-modo="ouvindo"] .estado .t { color: var(--ok); text-shadow: 0 0 12px var(--ok); }
 
 .conversa {
-  flex: 1; min-height: 160px; overflow-y: auto; scrollbar-width: thin;
-  display: flex; flex-direction: column; gap: 10px;
-  padding: 12px; border: 1px solid var(--line); border-radius: var(--r);
-  background: rgba(4, 7, 12, 0.55);
+  height: clamp(220px, 36vh, 440px); overflow-y: auto; overflow-x: hidden; scrollbar-width: thin;
+  display: flex; flex-direction: column; gap: 12px; padding: 16px;
 }
-.msg { max-width: 88%; min-width: 0; }
+.msg { max-width: 90%; min-width: 0; }
 .msg p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
-.msg .quem { font: 600 10.5px/1 var(--f-display); letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 4px; display: block; }
+.msg .quem { font: 700 10px/1 var(--f-display); letter-spacing: 0.24em; text-transform: uppercase; margin-bottom: 5px; display: flex; gap: 8px; align-items: center; }
+.msg .quem time { font: 400 10.5px/1 var(--f-data); letter-spacing: 0; color: var(--ink-dim); }
 .msg.jarvis .quem { color: var(--arc); }
+.msg.jarvis p { color: var(--ink); }
 .msg.voce { align-self: flex-end; text-align: right; }
-.msg.voce .quem { color: var(--ink-dim); }
-.msg.voce p { background: var(--plate-2); border: 1px solid var(--line); padding: 7px 11px; border-radius: var(--r); display: inline-block; text-align: left; }
-.msg.aviso p { color: var(--gold); }
-.msg.aviso .quem { color: var(--gold); }
-.passos { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
-.passo { font: 400 12px/1 var(--f-data); color: var(--arc); border: 1px solid var(--arc-deep); padding: 4px 7px; border-radius: 2px; background: rgba(27, 127, 166, 0.12); }
+.msg.voce .quem { color: var(--ink-dim); justify-content: flex-end; }
+.msg.voce p { display: inline-block; text-align: left; padding: 8px 12px; background: rgba(95, 227, 255, 0.08); border-right: 2px solid var(--arc); }
+.msg.aviso .quem, .msg.aviso p { color: var(--gold); }
+.passos { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 2px; }
+.passo { font: 400 12px/1 var(--f-data); color: var(--arc); border: 1px solid var(--arc-deep); padding: 5px 8px; background: rgba(26, 134, 176, 0.14); }
+.cursor::after { content: "▌"; color: var(--arc); animation: piscar 0.8s steps(1) infinite; margin-left: 1px; }
 
-/* ---------- command bar ---------- */
+/* ---------- console ---------- */
+.console {
+  position: relative; z-index: 5;
+  padding-block: 4px calc(10px + env(safe-area-inset-bottom, 0px));
+}
 .comando { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .mic {
-  width: 54px; height: 54px; flex: none; border-radius: 50%;
-  border: 2px solid var(--arc); background: radial-gradient(circle, rgba(98, 220, 255, 0.25), rgba(4, 7, 12, 0.9) 70%);
-  display: grid; place-items: center; cursor: pointer;
-  box-shadow: 0 0 16px rgba(98, 220, 255, 0.35);
+  position: relative; width: 58px; height: 58px; flex: none; border-radius: 50%; cursor: pointer;
+  border: 2px solid var(--arc);
+  background: radial-gradient(circle, rgba(95, 227, 255, 0.35), rgba(2, 5, 10, 0.9) 70%);
+  display: grid; place-items: center; box-shadow: 0 0 22px rgba(95, 227, 255, 0.45), inset 0 0 12px rgba(95, 227, 255, 0.4);
 }
-.mic svg { width: 22px; height: 22px; fill: var(--arc); }
-.mic[aria-pressed="true"] { background: var(--arc); }
+.mic::before { content: ""; position: absolute; inset: -7px; border-radius: 50%; border: 1px dashed var(--arc-deep); animation: girar 12s linear infinite; }
+.mic svg { width: 23px; height: 23px; fill: var(--arc-hi); }
+.mic[aria-pressed="true"] { background: var(--arc); box-shadow: 0 0 36px var(--arc); }
 .mic[aria-pressed="true"] svg { fill: var(--void); }
-.entrada { flex: 1 1 260px; min-width: 0; display: flex; border: 1px solid var(--line); border-radius: var(--r); background: var(--plate); }
-.entrada input { flex: 1; min-width: 0; background: transparent; border: 0; padding: 14px; outline: none; font-size: 16px; }
-.entrada:focus-within { border-color: var(--arc); box-shadow: 0 0 0 1px var(--arc); }
-.entrada button {
-  border: 0; border-left: 1px solid var(--line); background: transparent; padding: 0 18px; cursor: pointer;
-  font: 600 12px/1 var(--f-display); letter-spacing: 0.2em; text-transform: uppercase; color: var(--arc);
+.mic[aria-pressed="true"]::before { border-color: var(--arc); border-style: solid; animation: pulso 1.2s ease-out infinite; }
+@keyframes pulso { from { transform: scale(1); opacity: 1; } to { transform: scale(1.5); opacity: 0; } }
+.entrada {
+  flex: 1 1 280px; min-width: 0; display: flex; position: relative;
+  background: rgba(8, 20, 33, 0.9); border: 1px solid var(--line);
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
 }
-.entrada button:hover { background: rgba(98, 220, 255, 0.08); }
+.entrada::before { content: "›"; display: grid; place-items: center; padding-left: 14px; font: 400 22px/1 var(--f-data); color: var(--arc); }
+.entrada input { flex: 1; min-width: 0; background: transparent; border: 0; padding: 15px 12px; outline: none; font-size: 16px; }
+.entrada input::placeholder { color: #5d7f92; }
+.entrada:focus-within { border-color: var(--arc); box-shadow: inset 0 0 18px rgba(95, 227, 255, 0.15); }
+.entrada button {
+  border: 0; border-left: 1px solid var(--line); background: rgba(95, 227, 255, 0.08); padding: 0 22px; cursor: pointer;
+  font: 700 12px/1 var(--f-display); letter-spacing: 0.24em; text-transform: uppercase; color: var(--arc-hi);
+}
+.entrada button:hover { background: rgba(95, 227, 255, 0.2); }
 .controles { display: flex; gap: 8px; flex-wrap: wrap; }
 .ctl {
-  border: 1px solid var(--line); background: var(--plate); border-radius: var(--r); padding: 9px 11px; cursor: pointer;
-  font: 500 11px/1 var(--f-display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-dim);
+  border: 1px solid var(--line); background: rgba(8, 20, 33, 0.9); padding: 10px 12px; cursor: pointer;
+  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+  font: 600 10.5px/1 var(--f-display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-dim);
 }
 .ctl:hover { color: var(--ink); border-color: var(--arc-deep); }
 .ctl[aria-pressed="true"] { color: var(--void); background: var(--arc); border-color: var(--arc); }
+.ticker { margin-top: 10px; overflow: hidden; border-top: 1px solid var(--line); padding-top: 7px; mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); }
+.ticker div { display: inline-flex; gap: 34px; white-space: nowrap; animation: correr 38s linear infinite; font: 400 11.5px/1 var(--f-data); color: var(--ink-dim); letter-spacing: 0.06em; }
+.ticker b { color: var(--arc); font-weight: 400; }
+@keyframes correr { to { transform: translateX(-50%); } }
 
-/* ---------- authorization dialog ---------- */
-.autorizacao {
-  position: fixed; inset: 0; display: grid; place-items: center; padding: 16px;
-  background: rgba(4, 7, 12, 0.72); backdrop-filter: blur(3px); z-index: 10;
-}
+/* ---------- authorization ---------- */
+.autorizacao { position: fixed; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(2, 5, 10, 0.75); backdrop-filter: blur(4px); z-index: 35; }
 .autorizacao .caixa {
-  width: min(460px, 100%); border: 1px solid var(--gold); background: var(--plate); border-radius: var(--r);
-  padding: 20px; box-shadow: 0 0 40px rgba(244, 181, 68, 0.25);
+  position: relative; width: min(480px, 100%); padding: 22px;
+  background: repeating-linear-gradient(135deg, rgba(255, 184, 64, 0.05) 0 10px, transparent 10px 20px), var(--plate-solid);
+  border: 1px solid var(--gold); box-shadow: 0 0 50px rgba(255, 184, 64, 0.3), inset 0 0 30px rgba(255, 184, 64, 0.08);
+  clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px));
 }
-.autorizacao h3 { margin: 0 0 4px; font: 700 14px/1.2 var(--f-display); letter-spacing: 0.24em; text-transform: uppercase; color: var(--gold); }
-.autorizacao .acao { margin: 12px 0 4px; font: 600 20px/1.25 var(--f-display); text-transform: capitalize; text-wrap: balance; }
-.autorizacao .det { margin: 0; font: 400 13px/1.45 var(--f-data); color: var(--ink-dim); overflow-wrap: anywhere; max-height: 160px; overflow-y: auto; }
-.autorizacao .botoes { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
-.autorizacao button { flex: 1 1 140px; padding: 12px; border-radius: var(--r); cursor: pointer; font: 700 12px/1 var(--f-display); letter-spacing: 0.2em; text-transform: uppercase; }
-.autorizacao .sim { background: var(--gold); border: 1px solid var(--gold); color: var(--void); }
+.autorizacao h3 { margin: 0; display: flex; align-items: center; gap: 10px; font: 800 13px/1.2 var(--f-title); letter-spacing: 0.22em; text-transform: uppercase; color: var(--gold); }
+.autorizacao h3::before { content: "⚠"; font-size: 18px; animation: piscar 1s steps(1) infinite; }
+.autorizacao .acao { margin: 14px 0 6px; font: 700 22px/1.25 var(--f-display); text-transform: capitalize; text-wrap: balance; }
+.autorizacao .det { margin: 0; font: 400 13px/1.5 var(--f-data); color: var(--ink-dim); overflow-wrap: anywhere; max-height: 160px; overflow-y: auto; }
+.autorizacao .botoes { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+.autorizacao button { flex: 1 1 140px; padding: 13px; cursor: pointer; font: 700 12px/1 var(--f-display); letter-spacing: 0.24em; text-transform: uppercase; }
+.autorizacao .sim { background: var(--gold); border: 1px solid var(--gold); color: var(--void); box-shadow: 0 0 18px rgba(255, 184, 64, 0.5); }
 .autorizacao .nao { background: transparent; border: 1px solid var(--line); color: var(--ink); }
 .autorizacao .dica { margin: 12px 0 0; font-size: 12.5px; color: var(--ink-dim); }
 
 .toast {
-  position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
-  max-width: calc(100% - 32px); padding: 10px 14px; border-radius: var(--r);
-  background: var(--plate-2); border: 1px solid var(--arc-deep); color: var(--ink); font-size: 14px; z-index: 11;
+  position: fixed; left: 50%; bottom: calc(120px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 36;
+  max-width: calc(100% - 32px); padding: 10px 14px; background: var(--plate-solid); border: 1px solid var(--arc-deep); color: var(--ink); font-size: 14px;
 }
 
 /* ---------- responsive ---------- */
-@media (max-width: 1050px) {
-  .centro-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  .nucleo { grid-column: 1 / -1; order: -1; }
-  .conversa { max-height: 46vh; }
+@media (min-width: 1101px) and (min-height: 820px) {
+  .app { height: 100%; }
+  .grade { flex: 1; min-height: 0; align-items: stretch; }
+  .lado { overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; }
+  .nucleo { min-height: 0; }
+  .palco { width: min(100%, 460px, 44vh); }
+  .conversa { flex: 1; height: auto; min-height: 160px; }
 }
-@media (max-width: 680px) {
-  .app { height: auto; min-height: 100%; }
-  .centro-grid { grid-template-columns: minmax(0, 1fr); }
-  .coluna { overflow: visible; }
-  .marca h1 { font-size: 21px; }
-  .relogio .hora { font-size: 22px; }
-  #reator { width: min(100%, 260px); }
-  .comando { position: sticky; bottom: 0; padding-block: 10px calc(10px + env(safe-area-inset-bottom, 0px)); background: var(--void); }
+@media (max-width: 1100px) {
+  .grade { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .nucleo { grid-column: 1 / -1; order: -1; }
+}
+@media (max-width: 700px) {
+  .grade { grid-template-columns: minmax(0, 1fr); }
+  .marca h1 { font-size: 20px; letter-spacing: 0.2em; }
+  .selo { width: 34px; height: 34px; }
+  .relogio { text-align: left; }
+  .relogio .hora { font-size: 24px; }
+  .palco { width: min(100%, 320px); }
+  .leitura { font-size: 9.5px; } .leitura b { font-size: 12.5px; }
+  .dials { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 12px; }
+  .moldura { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .barra b { transition: none; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 </style>
+
+<canvas id="fundo" aria-hidden="true"></canvas>
+<div class="scanlines" aria-hidden="true"></div>
+<div class="moldura" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+
+<div class="boot" id="boot" aria-hidden="true">
+  <pre id="boot-log"></pre>
+  <button class="pular" id="pular" tabindex="-1">Pular</button>
+</div>
 
 <div class="app">
   <header class="topo">
     <div class="marca">
-      <h1>J.A.R.V.I.S.</h1>
-      <span>Just A Rather Very Intelligent System</span>
-    </div>
-    <div class="relogio">
-      <div class="chips">
-        <span class="chip" id="chip-ia"><i></i>Claude</span>
-        <span class="chip" id="chip-google"><i></i>Google</span>
-        <span class="chip" id="chip-pc"><i></i>Computador</span>
-      </div>
+      <svg class="selo" viewBox="0 0 48 48" aria-hidden="true">
+        <circle cx="24" cy="24" r="21" fill="none" stroke="#5fe3ff" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <circle cx="24" cy="24" r="14" fill="none" stroke="#5fe3ff" stroke-width="2"/>
+        <path d="M24 13 L33.5 29.5 L14.5 29.5 Z" fill="none" stroke="#b9f6ff" stroke-width="2"/>
+        <circle cx="24" cy="24" r="4" fill="#b9f6ff"/>
+      </svg>
       <div>
+        <h1 data-texto="J.A.R.V.I.S.">J.A.R.V.I.S.</h1>
+        <span class="sub">Just A Rather Very Intelligent System</span>
+      </div>
+    </div>
+    <div class="topo-dir">
+      <div class="chips">
+        <span class="chip" id="chip-ia"><i></i>Núcleo IA</span>
+        <span class="chip" id="chip-pc"><i></i>Computador</span>
+        <span class="chip" id="chip-google"><i></i>Google</span>
+        <span class="chip" id="chip-mic"><i></i>Microfone</span>
+      </div>
+      <div class="relogio">
         <div class="hora" id="hora">--:--:--</div>
         <div class="data" id="data">&nbsp;</div>
       </div>
     </div>
-    <p class="faixa-demo" id="faixa-demo" hidden>
-      Pré-visualização. Aqui os dados são de exemplo e nada acontece no seu computador.
-      Para o JARVIS de verdade, rode <code>python -m jarvis</code> no seu PC (veja o README).
-    </p>
   </header>
 
-  <main class="centro-grid">
-    <section class="coluna" aria-label="Sistema e memória">
+  <p class="faixa-demo" id="faixa-demo" hidden>
+    Pré-visualização com dados de exemplo: nada acontece no seu computador.
+    Para o JARVIS de verdade, rode <code>python -m jarvis</code> no seu PC (veja o README).
+  </p>
+
+  <main class="grade">
+    <section class="lado" aria-label="Sistema e memória">
       <div class="painel">
-        <h2>Sistema <small id="sis-atualizado"></small></h2>
-        <div class="medidor"><span class="rot">CPU</span><div class="barra" id="b-cpu"><b></b></div><span class="val" id="v-cpu">--</span></div>
-        <div class="medidor"><span class="rot">Memória</span><div class="barra" id="b-ram"><b></b></div><span class="val" id="v-ram">--</span></div>
-        <div class="medidor" id="linha-bat"><span class="rot">Bateria</span><div class="barra" id="b-bat"><b></b></div><span class="val" id="v-bat">--</span></div>
-        <div class="medidor"><span class="rot">Disco</span><span></span><span class="val" id="v-disco">--</span></div>
+        <h2>Sistema <span class="tag" id="sis-atualizado"></span></h2>
+        <div class="dials" id="dials"></div>
+        <div class="grafico">
+          <div class="cab"><span>Carga da CPU · últimos 2 min</span><span id="cpu-pico"></span></div>
+          <canvas id="cpu-hist"></canvas>
+        </div>
         <p class="sis-nome" id="sis-nome"></p>
       </div>
       <div class="painel">
-        <h2>Memória <small>o que ele sabe sobre você</small></h2>
+        <h2>Memória <span class="tag">o que ele sabe sobre você</span></h2>
         <ul class="lista memorias" id="memorias"></ul>
       </div>
     </section>
 
     <section class="nucleo" aria-label="JARVIS">
-      <div class="reator-caixa">
+      <div class="palco">
         <canvas id="reator" role="button" tabindex="0" aria-label="Falar com o JARVIS"></canvas>
+        <div class="leitura l1">Sessão<b id="r-sessao">00:00:00</b></div>
+        <div class="leitura l2">Comandos<b id="r-comandos">0</b></div>
+        <div class="leitura l3">Última resposta<b id="r-latencia">-- s</b></div>
+        <div class="leitura l4">Ações executadas<b id="r-acoes">0</b></div>
       </div>
-      <div class="estado" id="estado">Aguardando<small id="estado-sub">Toque no reator ou no microfone para falar</small></div>
-      <div class="conversa" id="conversa" aria-live="polite"></div>
+      <div class="estado"><div class="t" id="estado">Aguardando</div><small id="estado-sub">Toque no reator ou no microfone para falar</small></div>
+      <div class="painel conversa" id="conversa" aria-live="polite"></div>
     </section>
 
-    <section class="coluna" aria-label="Agenda e e-mails">
+    <section class="lado" aria-label="Agenda, e-mails e operações">
       <div class="painel">
-        <h2>Agenda de hoje <small id="agenda-tag"></small></h2>
+        <h2>Agenda de hoje <span class="tag" id="agenda-tag"></span></h2>
         <ul class="lista" id="agenda"></ul>
       </div>
       <div class="painel">
-        <h2>E-mails não lidos <small id="emails-tag"></small></h2>
+        <h2>E-mails não lidos <span class="tag" id="emails-tag"></span></h2>
         <ul class="lista emails" id="emails"></ul>
+      </div>
+      <div class="painel">
+        <h2>Registro de operações</h2>
+        <ul class="registro" id="registro"></ul>
       </div>
     </section>
   </main>
 
-  <footer class="comando">
-    <button class="mic" id="mic" aria-pressed="false" aria-label="Falar um comando">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2z"/></svg>
-    </button>
-    <form class="entrada" id="form">
-      <input id="texto" autocomplete="off" placeholder="Digite um comando, ex.: abre o Spotify e coloca o volume em 30">
-      <button type="submit">Enviar</button>
-    </form>
-    <div class="controles">
-      <button class="ctl" id="sempre" aria-pressed="false" title="Fica ouvindo e responde quando você diz “Jarvis”">Sempre ouvindo</button>
-      <button class="ctl" id="mudo" aria-pressed="false">Sem voz</button>
-      <button class="ctl" id="nova">Nova conversa</button>
+  <footer class="console">
+    <div class="comando">
+      <button class="mic" id="mic" aria-pressed="false" aria-label="Falar um comando">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2z"/></svg>
+      </button>
+      <form class="entrada" id="form">
+        <input id="texto" autocomplete="off" aria-label="Comando" placeholder="Digite um comando, ex.: abre o Spotify e coloca o volume em 30">
+        <button type="submit">Executar</button>
+      </form>
+      <div class="controles">
+        <button class="ctl" id="sempre" aria-pressed="false" title="Fica ouvindo e responde quando você diz “Jarvis”">Sempre ouvindo</button>
+        <button class="ctl" id="mudo" aria-pressed="false">Sem voz</button>
+        <button class="ctl" id="nova">Nova conversa</button>
+      </div>
     </div>
+    <div class="ticker" aria-hidden="true"><div id="ticker"></div></div>
   </footer>
 </div>
 
@@ -338,19 +479,49 @@ body[data-modo="pensando"] .estado { color: var(--gold); }
   const reduzMovimento = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const DIAS = ["domingo", "segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado"];
   const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+  const COR = { arc: css("--arc"), hi: css("--arc-hi"), deep: css("--arc-deep"), gold: css("--gold"), hot: css("--hot"), ok: css("--ok"), ink: css("--ink-dim") };
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const inicioSessao = Date.now();
+  const stats = { comandos: 0, acoes: 0, latencia: null, enviadoEm: 0 };
+  let modelo = "claude-opus-5-5";
+  let ultimoSistema = {};
 
   const pref = {
     get(k, d) { try { const v = localStorage.getItem("jarvis." + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
     set(k, v) { try { localStorage.setItem("jarvis." + k, JSON.stringify(v)); } catch {} },
   };
+  const hhmmss = (d = new Date()) => d.toLocaleTimeString("pt-BR", { hour12: false });
 
-  // ------------------------------------------------------------------ clock
+  // ------------------------------------------------------------------ clock + readouts
   function relogio() {
     const a = new Date();
-    $("#hora").textContent = a.toLocaleTimeString("pt-BR", { hour12: false });
+    $("#hora").textContent = hhmmss(a);
     $("#data").textContent = `${DIAS[a.getDay()]} · ${a.getDate()} ${MESES[a.getMonth()]} ${a.getFullYear()}`;
+    const s = Math.floor((Date.now() - inicioSessao) / 1000);
+    $("#r-sessao").textContent = [s / 3600, (s % 3600) / 60, s % 60].map((n) => String(Math.floor(n)).padStart(2, "0")).join(":");
+    $("#r-comandos").textContent = stats.comandos;
+    $("#r-acoes").textContent = stats.acoes;
+    $("#r-latencia").textContent = stats.latencia == null ? "-- s" : stats.latencia.toFixed(1) + " s";
   }
   relogio(); setInterval(relogio, 1000);
+
+  function atualizarTicker() {
+    const s = ultimoSistema;
+    const itens = [
+      ["Núcleo", modelo],
+      ["CPU", s.cpu_percent != null ? Math.round(s.cpu_percent) + "%" : "--"],
+      ["Memória", s.ram_percent != null ? Math.round(s.ram_percent) + "%" : "--"],
+      ["Bateria", s.bateria_percent != null ? s.bateria_percent + "%" : "na tomada"],
+      ["Disco livre", s.disco_livre_gb != null ? s.disco_livre_gb + " GB" : "--"],
+      ["Canal", DEMO ? "pré-visualização" : "127.0.0.1 · privado"],
+      ["Comandos", stats.comandos],
+      ["Ações", stats.acoes],
+      ["Voz", SR ? "pt-BR" : "indisponível"],
+      ["Protocolo", "autorização para ações sensíveis"],
+    ];
+    const linha = itens.map(([k, v]) => `<span>${k} <b>${String(v).replace(/</g, "&lt;")}</b></span>`).join("");
+    $("#ticker").innerHTML = linha + linha;
+  }
 
   // ------------------------------------------------------------------ state
   let modo = "ocioso";
@@ -366,25 +537,50 @@ body[data-modo="pensando"] .estado { color: var(--gold); }
     const [t, s] = ROTULOS[m];
     let detalhe = sub ?? s;
     if (m === "ocioso" && sempreOuvindo) detalhe = "Diga “Jarvis” seguido do pedido";
-    $("#estado").firstChild.textContent = t;
+    $("#estado").textContent = t;
     $("#estado-sub").textContent = detalhe;
   }
-
-  function toast(msg, ms = 4200) {
+  function toast(msg, ms = 4500) {
     const t = $("#toast"); t.textContent = msg; t.hidden = false;
     clearTimeout(toast.h); toast.h = setTimeout(() => (t.hidden = true), ms);
   }
+  function chip(id, estado) { $("#chip-" + id).className = "chip " + (estado || ""); }
 
-  // ------------------------------------------------------------------ conversation log
+  // ------------------------------------------------------------------ operations log
+  function registrar(texto, tipo = "") {
+    const li = document.createElement("li");
+    li.className = tipo;
+    li.innerHTML = `<span></span><span></span>`;
+    li.children[0].textContent = hhmmss();
+    li.children[1].textContent = texto;
+    const r = $("#registro");
+    r.prepend(li);
+    while (r.children.length > 60) r.lastChild.remove();
+  }
+
+  // ------------------------------------------------------------------ conversation
   const conversa = $("#conversa");
   let passosAtuais = null;
-  function addMsg(tipo, texto) {
+  function addMsg(tipo, texto, digitar = false) {
     const d = document.createElement("div");
     d.className = "msg " + tipo;
     const quem = { voce: "Você", jarvis: "JARVIS", aviso: "Lembrete" }[tipo];
-    d.innerHTML = `<span class="quem">${quem}</span><p></p>`;
-    d.querySelector("p").textContent = texto;
+    d.innerHTML = `<span class="quem"><span></span><time></time></span><p></p>`;
+    d.querySelector(".quem span").textContent = quem;
+    d.querySelector("time").textContent = hhmmss().slice(0, 5);
+    const p = d.querySelector("p");
     conversa.append(d);
+    if (digitar && !reduzMovimento) {
+      p.classList.add("cursor");
+      let i = 0;
+      const passo = Math.max(1, Math.round(texto.length / 90));
+      const h = setInterval(() => {
+        i = Math.min(texto.length, i + passo);
+        p.textContent = texto.slice(0, i);
+        conversa.scrollTop = conversa.scrollHeight;
+        if (i >= texto.length) { clearInterval(h); p.classList.remove("cursor"); }
+      }, 16);
+    } else p.textContent = texto;
     conversa.scrollTop = conversa.scrollHeight;
     return d;
   }
@@ -400,7 +596,9 @@ body[data-modo="pensando"] .estado { color: var(--gold); }
     s.className = "passo"; s.textContent = "↳ " + nome.replaceAll("_", " ");
     passosAtuais.append(s);
     conversa.scrollTop = conversa.scrollHeight;
-    pulsoExtra = 1;
+    stats.acoes++;
+    registrar("executando " + nome.replaceAll("_", " "), "ferr");
+    reator.pulso = 1;
   }
 
   // ------------------------------------------------------------------ API
@@ -415,45 +613,82 @@ body[data-modo="pensando"] .estado { color: var(--gold); }
     return dados;
   }
 
-  // ------------------------------------------------------------------ panels
-  function medidor(id, pct, invertido) {
-    const b = $("#b-" + id);
-    const v = Math.max(0, Math.min(100, pct));
-    b.querySelector("b").style.width = v + "%";
-    const ruim = invertido ? 100 - v : v;
-    b.classList.toggle("alerta", ruim >= 70 && ruim < 90);
-    b.classList.toggle("critico", ruim >= 90);
-    $("#v-" + id).textContent = Math.round(v) + "%";
+  // ------------------------------------------------------------------ dials + sparkline
+  const DIALS = [["cpu", "CPU"], ["ram", "Memória"], ["bat", "Bateria"], ["disco", "Disco livre"]];
+  const C = 2 * Math.PI * 38;
+  $("#dials").innerHTML = DIALS.map(([id, rot]) => `
+    <div class="dial" id="d-${id}">
+      <svg viewBox="0 0 100 100" aria-hidden="true">
+        <circle class="giro" cx="50" cy="50" r="47"/>
+        <circle class="marcas" cx="50" cy="50" r="44"/>
+        <circle class="trilho" cx="50" cy="50" r="38"/>
+        <circle class="valor" cx="50" cy="50" r="38" stroke-dasharray="${C}" stroke-dashoffset="${C}"/>
+      </svg>
+      <span class="num">--</span><span class="rot">${rot}</span>
+    </div>`).join("");
+  function dial(id, pct, texto, ruim) {
+    const el = $("#d-" + id);
+    const v = Math.max(0, Math.min(100, pct ?? 0));
+    el.querySelector(".valor").style.strokeDashoffset = String(C * (1 - v / 100));
+    el.querySelector(".num").textContent = texto;
+    el.classList.toggle("alerta", ruim >= 70 && ruim < 90);
+    el.classList.toggle("critico", ruim >= 90);
   }
+  const histCpu = [];
+  function desenharHist() {
+    const cv = $("#cpu-hist"), dpr = Math.min(devicePixelRatio || 1, 2);
+    const w = cv.clientWidth, h = cv.clientHeight;
+    if (!w) return;
+    cv.width = w * dpr; cv.height = h * dpr;
+    const g = cv.getContext("2d"); g.scale(dpr, dpr);
+    g.strokeStyle = "rgba(21,64,92,0.7)"; g.lineWidth = 1;
+    for (let i = 1; i < 4; i++) { g.beginPath(); g.moveTo(0, (h * i) / 4); g.lineTo(w, (h * i) / 4); g.stroke(); }
+    for (let i = 1; i < 12; i++) { g.beginPath(); g.moveTo((w * i) / 12, 0); g.lineTo((w * i) / 12, h); g.globalAlpha = 0.4; g.stroke(); g.globalAlpha = 1; }
+    if (histCpu.length < 2) return;
+    const n = 30, x = (i) => (w * (i + n - histCpu.length)) / (n - 1), y = (v) => h - 2 - (v / 100) * (h - 4);
+    g.beginPath();
+    histCpu.forEach((v, i) => (i ? g.lineTo(x(i), y(v)) : g.moveTo(x(i), y(v))));
+    const area = g.createLinearGradient(0, 0, 0, h);
+    area.addColorStop(0, "rgba(95,227,255,0.35)"); area.addColorStop(1, "rgba(95,227,255,0)");
+    g.strokeStyle = COR.arc; g.lineWidth = 1.6; g.shadowColor = COR.arc; g.shadowBlur = 6; g.stroke(); g.shadowBlur = 0;
+    g.lineTo(x(histCpu.length - 1), h); g.lineTo(x(0), h); g.closePath(); g.fillStyle = area; g.fill();
+    const ult = histCpu[histCpu.length - 1];
+    g.fillStyle = COR.hi; g.beginPath(); g.arc(x(histCpu.length - 1), y(ult), 3, 0, Math.PI * 2); g.fill();
+    $("#cpu-pico").textContent = "pico " + Math.round(Math.max(...histCpu)) + "%";
+  }
+  addEventListener("resize", desenharHist);
+
+  // ------------------------------------------------------------------ panels
   function horaDe(iso) {
     if (!iso || iso.length <= 10) return "dia todo";
     const d = new Date(iso);
     return isNaN(d) ? iso : d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   }
+  const txt = (tag, cls, t) => { const e = document.createElement(tag); e.className = cls; e.textContent = t; return e; };
   function lista(el, itens, render, vazio) {
     el.replaceChildren();
     if (typeof itens === "string" || !itens || !itens.length) {
-      const li = document.createElement("li");
-      li.innerHTML = `<p class="vazio"></p>`;
-      li.className = "vazia";
-      li.style.gridTemplateColumns = "1fr";
-      li.querySelector("p").textContent = typeof itens === "string" ? itens : vazio;
-      el.append(li);
-      return;
+      const li = document.createElement("li"); li.className = "vazia";
+      li.append(txt("p", "vazio", typeof itens === "string" ? itens : vazio));
+      el.append(li); return;
     }
     for (const it of itens) { const li = document.createElement("li"); render(li, it); el.append(li); }
   }
-  const txt = (tag, cls, t) => { const e = document.createElement(tag); e.className = cls; e.textContent = t; return e; };
 
   function desenharPainel(p) {
-    const s = p.sistema || {};
-    medidor("cpu", s.cpu_percent ?? 0);
-    medidor("ram", s.ram_percent ?? 0);
-    if (s.bateria_percent == null) $("#linha-bat").hidden = true;
-    else { $("#linha-bat").hidden = false; medidor("bat", s.bateria_percent, true); if (s.carregando) $("#v-bat").textContent += "⚡"; }
-    $("#v-disco").textContent = s.disco_livre_gb != null ? s.disco_livre_gb + " GB livres" : "--";
-    $("#sis-nome").textContent = s.sistema || "";
-    $("#sis-atualizado").textContent = "atualizado " + new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    const s = (ultimoSistema = p.sistema || {});
+    if (p.modelo) modelo = p.modelo;
+    dial("cpu", s.cpu_percent, Math.round(s.cpu_percent ?? 0) + "%", s.cpu_percent);
+    dial("ram", s.ram_percent, Math.round(s.ram_percent ?? 0) + "%", s.ram_percent);
+    if (s.bateria_percent == null) dial("bat", 100, "AC", 0);
+    else dial("bat", s.bateria_percent, s.bateria_percent + "%" + (s.carregando ? "⚡" : ""), 100 - s.bateria_percent);
+    const totalGb = s.disco_total_gb || Math.max(s.disco_livre_gb * 2, 1);
+    dial("disco", ((s.disco_livre_gb ?? 0) / totalGb) * 100, s.disco_livre_gb != null ? Math.round(s.disco_livre_gb) + "G" : "--",
+      100 - ((s.disco_livre_gb ?? 0) / totalGb) * 100);
+    histCpu.push(s.cpu_percent ?? 0); if (histCpu.length > 30) histCpu.shift();
+    desenharHist();
+    $("#sis-nome").textContent = s.sistema ? "// " + s.sistema : "";
+    $("#sis-atualizado").textContent = "sinc " + hhmmss().slice(0, 5);
 
     lista($("#memorias"), p.memorias, (li, f) => li.append(txt("span", "", f)),
       "Nada ainda. Diga “Jarvis, lembra que…” para ensinar algo.");
@@ -461,7 +696,8 @@ body[data-modo="pensando"] .estado { color: var(--gold); }
     const g = p.google || {};
     const exemplo = DEMO ? '<span class="exemplo">EXEMPLO</span>' : "";
     $("#agenda-tag").innerHTML = exemplo; $("#emails-tag").innerHTML = exemplo;
-    $("#chip-google").className = "chip " + (g.conectado ? "on" : "warn");
+    chip("google", g.conectado ? "on" : "warn");
+    atualizarTicker();
     if (!g.conectado) {
       const msg = "Google não conectado. Rode python -m jarvis --google para ver sua agenda e seus e-mails aqui.";
       lista($("#agenda"), msg); lista($("#emails"), msg);
@@ -483,19 +719,16 @@ body[data-modo="pensando"] .estado { color: var(--gold); }
   async function atualizarPainel() {
     if (DEMO) return desenharPainel(DEMO_PAINEL());
     try {
-      const p = await api("/api/painel");
-      desenharPainel(p);
-      $("#chip-pc").className = "chip on";
-      $("#chip-ia").className = "chip on";
+      desenharPainel(await api("/api/painel"));
+      chip("pc", "on");
     } catch {
-      $("#chip-pc").className = "chip warn";
+      chip("pc", "warn");
     }
   }
 
   // ------------------------------------------------------------------ voice out
   let mudo = pref.get("mudo", false);
   let falando = false;
-  let nivelVoz = 0;
   let audioCtx = null, analisador = null;
   const audio = new Audio();
   function prepararAudio() {
@@ -533,14 +766,13 @@ body[data-modo="pensando"] .estado { color: var(--gold); }
     } catch {
       await vozNavegador(texto);
     }
-    falando = false; nivelVoz = 0;
+    falando = false;
     janelaConversaAte = Date.now() + 7000;
     setModo("ocioso");
     retomarEscuta();
   }
 
   // ------------------------------------------------------------------ voice in
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   let rec = null, escutando = false, sempreOuvindo = false, umaVez = false;
   let janelaConversaAte = 0;
   const VARIACOES = ["jarvis", "jarvas", "javis", "jarves", "djarvis", "jervis", "jarbas"];
@@ -561,7 +793,7 @@ body[data-modo="pensando"] .estado { color: var(--gold); }
     if (!SR) return null;
     const r = new SR();
     r.lang = "pt-BR"; r.continuous = true; r.interimResults = true;
-    r.onstart = () => { escutando = true; if (!falando && modo !== "pensando") setModo(umaVez ? "ouvindo" : "ocioso", umaVez ? "Pode falar" : undefined); };
+    r.onstart = () => { escutando = true; chip("mic", "on"); if (!falando && modo !== "pensando") setModo(umaVez ? "ouvindo" : "ocioso", umaVez ? "Pode falar" : undefined); };
     r.onresult = (e) => {
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const t = e.results[i][0].transcript.trim();
@@ -571,7 +803,8 @@ body[data-modo="pensando"] .estado { color: var(--gold); }
     };
     r.onerror = (e) => {
       if (e.error === "not-allowed" || e.error === "service-not-allowed" || e.error === "audio-capture") {
-        sempreOuvindo = false; umaVez = false; atualizarBotoesMic();
+        sempreOuvindo = false; umaVez = false; atualizarBotoesMic(); chip("mic", "warn");
+        registrar("microfone bloqueado", "nao");
         toast(DEMO ? "O microfone não funciona nesta pré-visualização. No seu PC ele funciona normalmente."
                    : "Não consegui usar o microfone. Permita o acesso no ícone de cadeado da barra de endereço.");
       }
@@ -579,7 +812,7 @@ body[data-modo="pensando"] .estado { color: var(--gold); }
     r.onend = () => {
       escutando = false;
       if ((sempreOuvindo || umaVez) && !falando) { try { r.start(); } catch {} }
-      else if (modo === "ouvindo") setModo("ocioso");
+      else { chip("mic", ""); if (modo === "ouvindo") setModo("ocioso"); }
     };
     return r;
   }
@@ -590,13 +823,12 @@ body[data-modo="pensando"] .estado { color: var(--gold); }
     return true;
   }
   function pausarEscuta() { if (rec && escutando) { try { rec.abort(); } catch {} } }
-  function retomarEscuta() { if (sempreOuvindo || pendente) iniciarEscuta(); }
+  function retomarEscuta() { if (sempreOuvindo || (pendente && !DEMO)) iniciarEscuta(); }
   function atualizarBotoesMic() {
     $("#mic").setAttribute("aria-pressed", String(umaVez));
     $("#sempre").setAttribute("aria-pressed", String(sempreOuvindo));
     if (modo === "ocioso") setModo("ocioso");
   }
-
   function tratarFrase(t) {
     if (!t) return;
     const n = norm(t).replace(/^jarvis[,\s]*/, "");
@@ -625,9 +857,10 @@ body[data-modo="pensando"] .estado { color: var(--gold); }
     if (!texto) return;
     prepararAudio();
     janelaConversaAte = 0;
-    const n = norm(texto);
-    if (/^(nova conversa|limpar conversa)$/.test(n)) return novaConversa();
+    if (/^(nova conversa|limpar conversa)$/.test(norm(texto))) return novaConversa();
     addMsg("voce", texto);
+    stats.comandos++; stats.enviadoEm = performance.now();
+    registrar("comando recebido");
     passosAtuais = null;
     setModo("pensando");
     if (DEMO) return demoResponder(texto);
@@ -645,12 +878,17 @@ body[data-modo="pensando"] .estado { color: var(--gold); }
     if (ev.tipo === "ferramenta") addPasso(ev.nome);
     else if (ev.tipo === "resposta") {
       passosAtuais = null;
-      addMsg("jarvis", ev.texto);
+      if (stats.enviadoEm) { stats.latencia = (performance.now() - stats.enviadoEm) / 1000; stats.enviadoEm = 0; }
+      addMsg("jarvis", ev.texto, true);
+      registrar("resposta entregue", "ok");
+      chip("ia", /chave de acesso|problema técnico|conexão/i.test(ev.texto) ? "warn" : "on");
       setModo("ocioso");
       falar(ev.texto);
+      atualizarTicker();
       if (!DEMO) setTimeout(atualizarPainel, 600);
     } else if (ev.tipo === "aviso") {
       addMsg("aviso", ev.texto);
+      registrar("lembrete: " + ev.texto, "aut");
       falar(ev.texto);
     } else if (ev.tipo === "confirmar") {
       pendente = ev.id;
@@ -658,8 +896,9 @@ body[data-modo="pensando"] .estado { color: var(--gold); }
       $("#aut-det").textContent = ev.detalhes;
       $("#autorizacao").hidden = false;
       $("#aut-sim").focus();
+      registrar("aguardando autorização: " + ev.acao, "aut");
       setModo("pensando", "Aguardando sua autorização");
-      falar(`Preciso da sua autorização para ${ev.acao}. Posso prosseguir?`).then(() => { if (pendente) iniciarEscuta(); });
+      falar(`Preciso da sua autorização para ${ev.acao}. Posso prosseguir?`).then(() => { if (pendente && !DEMO) iniciarEscuta(); });
     } else if (ev.tipo === "confirmacao_encerrada" && ev.id === pendente) {
       pendente = null; $("#autorizacao").hidden = true;
     }
@@ -669,6 +908,7 @@ body[data-modo="pensando"] .estado { color: var(--gold); }
     const id = pendente;
     pendente = null; $("#autorizacao").hidden = true;
     addMsg("voce", aprovado ? "Autorizado." : "Negado.");
+    registrar(aprovado ? "ação autorizada" : "ação negada", aprovado ? "ok" : "nao");
     setModo("pensando");
     if (!sempreOuvindo) pausarEscuta();
     if (DEMO) return demoDecidir(aprovado);
@@ -682,23 +922,22 @@ body[data-modo="pensando"] .estado { color: var(--gold); }
         const r = await api(`/api/eventos?desde=${cursor}&espera=${primeira ? 0 : 20}`);
         for (const ev of r.eventos) {
           cursor = ev.n + 1;
-          // Na primeira leitura só retoma uma autorização em aberto; o resto é histórico.
           if (!primeira || ev.tipo === "confirmar" || ev.tipo === "confirmacao_encerrada") tratarEvento(ev);
         }
         if (primeira && r.ocupado) setModo("pensando");
         primeira = false;
-        $("#chip-pc").className = "chip on";
+        chip("pc", "on");
       } catch {
-        $("#chip-pc").className = "chip warn";
+        chip("pc", "warn");
         await new Promise((ok) => setTimeout(ok, 3000));
       }
     }
   }
-
   async function novaConversa() {
     if (!DEMO) { try { await api("/api/nova-conversa", {}); } catch (e) { return toast(e.message); } }
     conversa.replaceChildren();
-    addMsg("jarvis", "Conversa reiniciada. Em que posso ajudar, senhor?");
+    registrar("memória de curto prazo limpa");
+    addMsg("jarvis", "Conversa reiniciada. Em que posso ajudar, senhor?", true);
   }
 
   // ------------------------------------------------------------------ controls
@@ -712,6 +951,7 @@ body[data-modo="pensando"] .estado { color: var(--gold); }
     if (falando) { audio.pause(); window.speechSynthesis?.cancel(); }
     umaVez = true; atualizarBotoesMic();
     if (iniciarEscuta()) setModo("ouvindo", "Pode falar");
+    reator.pulso = 1;
   }
   $("#mic").addEventListener("click", apertarMic);
   $("#reator").addEventListener("click", apertarMic);
@@ -719,120 +959,243 @@ body[data-modo="pensando"] .estado { color: var(--gold); }
   $("#sempre").addEventListener("click", () => {
     prepararAudio();
     sempreOuvindo = !sempreOuvindo;
+    registrar(sempreOuvindo ? "escuta contínua ativada" : "escuta contínua desativada");
     if (sempreOuvindo) iniciarEscuta(); else if (!umaVez) pausarEscuta();
     atualizarBotoesMic();
   });
   function atualizarMudo() { $("#mudo").setAttribute("aria-pressed", String(mudo)); }
   $("#mudo").addEventListener("click", () => {
     mudo = !mudo; pref.set("mudo", mudo); atualizarMudo();
-    if (mudo) { audio.pause(); if ("speechSynthesis" in window) speechSynthesis.cancel(); }
+    if (mudo) { audio.pause(); window.speechSynthesis?.cancel(); }
   });
   $("#nova").addEventListener("click", novaConversa);
   $("#aut-sim").addEventListener("click", () => decidir(true));
   $("#aut-nao").addEventListener("click", () => decidir(false));
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && pendente) decidir(false); });
 
+  // ------------------------------------------------------------------ background field
+  const fundo = $("#fundo"), fg = fundo.getContext("2d");
+  let pts = [], hexCache = null;
+  function iniciarFundo() {
+    const dpr = Math.min(devicePixelRatio || 1, 1.5);
+    fundo.width = innerWidth * dpr; fundo.height = innerHeight * dpr;
+    fg.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const qtd = Math.round(Math.min(90, (innerWidth * innerHeight) / 22000));
+    pts = Array.from({ length: qtd }, () => ({ x: Math.random() * innerWidth, y: Math.random() * innerHeight, vx: (Math.random() - 0.5) * 0.25, vy: (Math.random() - 0.5) * 0.25 }));
+    // hex grid pre-rendered once
+    hexCache = document.createElement("canvas");
+    hexCache.width = fundo.width; hexCache.height = fundo.height;
+    const h = hexCache.getContext("2d"); h.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const r = 26, w = Math.sqrt(3) * r;
+    h.strokeStyle = "rgba(95,227,255,0.05)"; h.lineWidth = 1;
+    for (let row = -1, y = 0; y < innerHeight + r * 2; row++, y = row * r * 1.5) {
+      for (let x = (row % 2) * (w / 2) - w; x < innerWidth + w; x += w) {
+        h.beginPath();
+        for (let k = 0; k < 6; k++) { const a = Math.PI / 6 + (k * Math.PI) / 3; h[k ? "lineTo" : "moveTo"](x + r * Math.cos(a), y + r * Math.sin(a)); }
+        h.closePath(); h.stroke();
+      }
+    }
+  }
+  addEventListener("resize", iniciarFundo); iniciarFundo();
+  function quadroFundo(t) {
+    fg.clearRect(0, 0, innerWidth, innerHeight);
+    fg.drawImage(hexCache, 0, 0, innerWidth, innerHeight);
+    const lim = 130;
+    for (const p of pts) {
+      if (!reduzMovimento) { p.x += p.vx * (modo === "pensando" ? 3 : 1); p.y += p.vy * (modo === "pensando" ? 3 : 1); }
+      if (p.x < 0 || p.x > innerWidth) p.vx *= -1;
+      if (p.y < 0 || p.y > innerHeight) p.vy *= -1;
+    }
+    fg.lineWidth = 1;
+    for (let i = 0; i < pts.length; i++) {
+      for (let j = i + 1; j < pts.length; j++) {
+        const dx = pts[i].x - pts[j].x, dy = pts[i].y - pts[j].y, d = dx * dx + dy * dy;
+        if (d < lim * lim) {
+          fg.strokeStyle = `rgba(95,227,255,${0.12 * (1 - Math.sqrt(d) / lim)})`;
+          fg.beginPath(); fg.moveTo(pts[i].x, pts[i].y); fg.lineTo(pts[j].x, pts[j].y); fg.stroke();
+        }
+      }
+    }
+    fg.fillStyle = "rgba(185,246,255,0.5)";
+    for (const p of pts) { fg.fillRect(p.x - 1, p.y - 1, 2, 2); }
+    requestAnimationFrame(quadroFundo);
+  }
+  requestAnimationFrame(quadroFundo);
+
   // ------------------------------------------------------------------ arc reactor
   const cv = $("#reator"), ctx = cv.getContext("2d");
-  let pulsoExtra = 0, t0 = performance.now();
-  const cores = { arc: css("--arc"), deep: css("--arc-deep"), gold: css("--gold"), void: css("--void") };
+  const reator = { pulso: 0, rot: 0, voz: 0, t0: performance.now() };
+  const ANEL_TEXTO = " J.A.R.V.I.S. · SISTEMA PESSOAL · NÚCLEO ONLINE · PROTOCOLO DE AUTORIZAÇÃO ATIVO ·";
   function ajustarCanvas() {
-    const r = cv.getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const r = cv.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1, 2);
     cv.width = Math.max(1, r.width * dpr); cv.height = Math.max(1, r.height * dpr);
   }
   addEventListener("resize", ajustarCanvas); ajustarCanvas();
+  new ResizeObserver(ajustarCanvas).observe(cv);
   const buf = new Uint8Array(128);
-  let rot = 0;
+  const espectro = new Float32Array(72);
   function quadro(agora) {
-    const dt = Math.min(64, agora - t0) / 1000; t0 = agora;
-    const W = cv.width, H = cv.height, cx = W / 2, cy = H / 2, R = Math.min(W, H) / 2 * 0.96;
-    const veloc = { ocioso: 0.15, ouvindo: 0.35, pensando: 1.4, falando: 0.3 }[modo] * (reduzMovimento ? 0.2 : 1);
-    rot += dt * veloc;
-    if (modo === "falando") {
-      if (analisador && !audio.paused) {
-        analisador.getByteFrequencyData(buf);
-        let s = 0; for (let i = 2; i < 40; i++) s += buf[i];
-        nivelVoz += ((s / 38 / 255) * 1.6 - nivelVoz) * 0.35;
-      } else nivelVoz = 0.35 + 0.25 * Math.sin(agora / 110) * Math.sin(agora / 47);
-    } else nivelVoz *= 0.9;
-    pulsoExtra *= 0.94;
+    const dt = Math.min(64, agora - reator.t0) / 1000; reator.t0 = agora;
+    const W = cv.width, H = cv.height, cx = W / 2, cy = H / 2, R = (Math.min(W, H) / 2) * 0.8;
+    const veloc = { ocioso: 0.18, ouvindo: 0.45, pensando: 1.6, falando: 0.35 }[modo] * (reduzMovimento ? 0.15 : 1);
+    reator.rot += dt * veloc;
+    const rot = reator.rot;
+
+    // spectrum: real audio when available, synthetic otherwise
+    let temAudio = false;
+    if (modo === "falando" && analisador && !audio.paused) { analisador.getByteFrequencyData(buf); temAudio = true; }
+    for (let i = 0; i < espectro.length; i++) {
+      let alvo = 0.04 + 0.03 * Math.sin(agora / 900 + i);
+      if (temAudio) alvo = (buf[(i % 36) + 2] / 255) * 0.9;
+      else if (modo === "falando") alvo = 0.15 + 0.5 * Math.abs(Math.sin(agora / 120 + i * 0.7) * Math.sin(agora / 53 + i * 0.3));
+      else if (modo === "ouvindo") alvo = 0.1 + 0.35 * Math.abs(Math.sin(agora / 200 + i * 0.45));
+      else if (modo === "pensando") alvo = 0.08 + 0.3 * Math.max(0, Math.sin(agora / 140 - i * 0.35));
+      espectro[i] += (alvo - espectro[i]) * 0.25;
+    }
+    let media = 0; for (const v of espectro) media += v; media /= espectro.length;
+    reator.voz += ((modo === "falando" ? media * 1.6 : 0) - reator.voz) * 0.2;
+    reator.pulso *= 0.94;
     const respira = reduzMovimento ? 0.5 : 0.5 + 0.5 * Math.sin(agora / (modo === "ouvindo" ? 380 : 1400));
-    const energia = Math.min(1, 0.35 + respira * 0.2 + nivelVoz * 0.7 + pulsoExtra * 0.5 + (modo === "ouvindo" ? 0.2 : 0));
-    const acento = modo === "pensando" ? cores.gold : cores.arc;
+    const energia = Math.min(1, 0.35 + respira * 0.2 + reator.voz * 0.6 + reator.pulso * 0.5 + (modo === "ouvindo" ? 0.2 : 0));
+    const acento = modo === "pensando" ? COR.gold : modo === "ouvindo" ? COR.ok : COR.arc;
 
     ctx.clearRect(0, 0, W, H);
-    ctx.lineCap = "round";
+    ctx.lineCap = "butt";
 
-    // glow
-    const g = ctx.createRadialGradient(cx, cy, R * 0.05, cx, cy, R);
-    g.addColorStop(0, `rgba(98,220,255,${0.22 + energia * 0.25})`);
-    g.addColorStop(0.45, "rgba(98,220,255,0.06)");
-    g.addColorStop(1, "rgba(98,220,255,0)");
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
+    // halo
+    const g = ctx.createRadialGradient(cx, cy, R * 0.05, cx, cy, R * 1.22);
+    g.addColorStop(0, `rgba(95,227,255,${0.25 + energia * 0.3})`);
+    g.addColorStop(0.4, "rgba(95,227,255,0.07)");
+    g.addColorStop(1, "rgba(95,227,255,0)");
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R * 1.22, 0, Math.PI * 2); ctx.fill();
 
-    // outer tick ring
-    ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot * 0.4);
-    for (let i = 0; i < 72; i++) {
-      const a = (i / 72) * Math.PI * 2, longo = i % 6 === 0;
-      ctx.strokeStyle = longo ? acento : cores.deep;
-      ctx.globalAlpha = longo ? 0.9 : 0.55;
-      ctx.lineWidth = R * (longo ? 0.012 : 0.007);
-      ctx.beginPath();
-      ctx.moveTo(Math.cos(a) * R * 0.9, Math.sin(a) * R * 0.9);
-      ctx.lineTo(Math.cos(a) * R * (longo ? 0.97 : 0.94), Math.sin(a) * R * (longo ? 0.97 : 0.94));
-      ctx.stroke();
+    // spectrum ring
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(-rot * 0.15);
+    for (let i = 0; i < espectro.length; i++) {
+      const a = (i / espectro.length) * Math.PI * 2, len = R * (0.03 + espectro[i] * 0.2);
+      ctx.strokeStyle = acento; ctx.globalAlpha = 0.35 + espectro[i];
+      ctx.lineWidth = R * 0.018;
+      ctx.beginPath(); ctx.moveTo(Math.cos(a) * R * 1.06, Math.sin(a) * R * 1.06); ctx.lineTo(Math.cos(a) * (R * 1.06 + len), Math.sin(a) * (R * 1.06 + len)); ctx.stroke();
     }
     ctx.restore(); ctx.globalAlpha = 1;
 
-    // counter-rotating arc segments
-    ctx.save(); ctx.translate(cx, cy); ctx.rotate(-rot);
-    ctx.strokeStyle = acento; ctx.lineWidth = R * 0.03; ctx.shadowColor = acento; ctx.shadowBlur = R * 0.06 * energia;
-    for (let i = 0; i < 3; i++) {
-      const a = (i / 3) * Math.PI * 2;
-      ctx.beginPath(); ctx.arc(0, 0, R * 0.8, a, a + Math.PI * 0.42); ctx.stroke();
+    // rotating text ring
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot * 0.22);
+    ctx.fillStyle = COR.arc; ctx.globalAlpha = 0.7;
+    ctx.font = `${Math.max(8, R * 0.052)}px ${css("--f-data")}`;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    const letras = ANEL_TEXTO.split("");
+    for (let i = 0; i < letras.length; i++) {
+      ctx.save(); ctx.rotate((i / letras.length) * Math.PI * 2); ctx.fillText(letras[i], 0, -R * 0.985); ctx.restore();
     }
-    ctx.lineWidth = R * 0.008; ctx.shadowBlur = 0; ctx.globalAlpha = 0.6;
-    ctx.beginPath(); ctx.arc(0, 0, R * 0.74, 0, Math.PI * 2); ctx.stroke();
     ctx.restore(); ctx.globalAlpha = 1;
 
-    // coil ring (10 segments)
-    ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot * 0.25);
+    // tick ring
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(-rot * 0.4);
+    for (let i = 0; i < 90; i++) {
+      const a = (i / 90) * Math.PI * 2, longo = i % 5 === 0;
+      ctx.strokeStyle = longo ? acento : COR.deep; ctx.globalAlpha = longo ? 0.95 : 0.55;
+      ctx.lineWidth = R * (longo ? 0.012 : 0.006);
+      ctx.beginPath(); ctx.moveTo(Math.cos(a) * R * 0.88, Math.sin(a) * R * 0.88); ctx.lineTo(Math.cos(a) * R * (longo ? 0.94 : 0.915), Math.sin(a) * R * (longo ? 0.94 : 0.915)); ctx.stroke();
+    }
+    ctx.restore(); ctx.globalAlpha = 1;
+
+    // radar sweep
+    if (ctx.createConicGradient) {
+      const ang = rot * 2.2;
+      const cg = ctx.createConicGradient(ang, cx, cy);
+      cg.addColorStop(0, "rgba(95,227,255,0.32)"); cg.addColorStop(0.12, "rgba(95,227,255,0)"); cg.addColorStop(1, "rgba(95,227,255,0)");
+      ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(cx, cy, R * 0.86, 0, Math.PI * 2); ctx.arc(cx, cy, R * 0.66, 0, Math.PI * 2, true); ctx.fill();
+      ctx.strokeStyle = COR.hi; ctx.globalAlpha = 0.8; ctx.lineWidth = R * 0.006;
+      ctx.beginPath(); ctx.moveTo(cx + Math.cos(ang) * R * 0.66, cy + Math.sin(ang) * R * 0.66); ctx.lineTo(cx + Math.cos(ang) * R * 0.86, cy + Math.sin(ang) * R * 0.86); ctx.stroke(); ctx.globalAlpha = 1;
+    }
+
+    // heavy arc segments
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot);
+    ctx.strokeStyle = acento; ctx.lineWidth = R * 0.04; ctx.shadowColor = acento; ctx.shadowBlur = R * 0.08 * energia;
+    for (let i = 0; i < 3; i++) { const a = (i / 3) * Math.PI * 2; ctx.beginPath(); ctx.arc(0, 0, R * 0.8, a, a + Math.PI * 0.4); ctx.stroke(); }
+    ctx.shadowBlur = 0; ctx.lineWidth = R * 0.012;
+    for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2 + 0.2; ctx.beginPath(); ctx.arc(0, 0, R * 0.72, a, a + Math.PI * 0.18); ctx.stroke(); }
+    ctx.restore();
+
+    // orbiting particles
+    for (let k = 0; k < 3; k++) {
+      const a = rot * (1.3 + k * 0.4) + (k * Math.PI * 2) / 3;
+      const rx = R * (0.76 + k * 0.05), ry = R * (0.28 + k * 0.12);
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(k * 1.05);
+      ctx.strokeStyle = "rgba(95,227,255,0.12)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = COR.hi; ctx.shadowColor = COR.arc; ctx.shadowBlur = 12;
+      ctx.beginPath(); ctx.arc(Math.cos(a) * rx, Math.sin(a) * ry, R * 0.018, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+    ctx.shadowBlur = 0;
+
+    // coil ring
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot * 0.3);
     for (let i = 0; i < 10; i++) {
-      const a = (i / 10) * Math.PI * 2, larg = (Math.PI * 2) / 10 * 0.68;
-      const r1 = R * 0.46, r2 = R * (0.64 + nivelVoz * 0.05);
-      ctx.beginPath();
-      ctx.arc(0, 0, r2, a, a + larg); ctx.arc(0, 0, r1, a + larg, a, true); ctx.closePath();
-      ctx.fillStyle = `rgba(98,220,255,${0.1 + energia * 0.22})`; ctx.fill();
-      ctx.strokeStyle = cores.arc; ctx.globalAlpha = 0.85; ctx.lineWidth = R * 0.008; ctx.stroke(); ctx.globalAlpha = 1;
+      const a = (i / 10) * Math.PI * 2, larg = ((Math.PI * 2) / 10) * 0.66;
+      const r1 = R * 0.42, r2 = R * (0.6 + reator.voz * 0.06);
+      ctx.beginPath(); ctx.arc(0, 0, r2, a, a + larg); ctx.arc(0, 0, r1, a + larg, a, true); ctx.closePath();
+      const lit = (Math.floor(rot * 6) % 10 === i) && modo === "pensando";
+      ctx.fillStyle = lit ? "rgba(255,184,64,0.5)" : `rgba(95,227,255,${0.1 + energia * 0.25})`; ctx.fill();
+      ctx.strokeStyle = COR.arc; ctx.globalAlpha = 0.85; ctx.lineWidth = R * 0.008; ctx.stroke(); ctx.globalAlpha = 1;
     }
     ctx.restore();
 
-    // inner ring + triangle (Mark II)
+    // inner ring + triangle
     ctx.save(); ctx.translate(cx, cy);
-    ctx.strokeStyle = cores.arc; ctx.lineWidth = R * 0.018; ctx.shadowColor = cores.arc; ctx.shadowBlur = R * 0.1 * energia;
-    ctx.beginPath(); ctx.arc(0, 0, R * 0.38, 0, Math.PI * 2); ctx.stroke();
-    ctx.rotate(-Math.PI / 2 + rot * 0.1);
-    ctx.lineWidth = R * 0.014; ctx.beginPath();
-    for (let i = 0; i < 3; i++) { const a = (i / 3) * Math.PI * 2; ctx[i ? "lineTo" : "moveTo"](Math.cos(a) * R * 0.33, Math.sin(a) * R * 0.33); }
+    ctx.strokeStyle = COR.arc; ctx.lineWidth = R * 0.02; ctx.shadowColor = COR.arc; ctx.shadowBlur = R * 0.12 * energia;
+    ctx.beginPath(); ctx.arc(0, 0, R * 0.35, 0, Math.PI * 2); ctx.stroke();
+    ctx.rotate(-Math.PI / 2 - rot * 0.12);
+    ctx.lineWidth = R * 0.016; ctx.strokeStyle = COR.hi; ctx.beginPath();
+    for (let i = 0; i < 3; i++) { const a = (i / 3) * Math.PI * 2; ctx[i ? "lineTo" : "moveTo"](Math.cos(a) * R * 0.3, Math.sin(a) * R * 0.3); }
     ctx.closePath(); ctx.stroke();
     ctx.restore();
 
     // core
-    const nucleo = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * (0.24 + nivelVoz * 0.06));
-    nucleo.addColorStop(0, "rgba(255,255,255,0.98)");
-    nucleo.addColorStop(0.35, `rgba(170,240,255,${0.75 + energia * 0.2})`);
-    nucleo.addColorStop(1, "rgba(98,220,255,0)");
+    const nucleo = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * (0.24 + reator.voz * 0.08));
+    nucleo.addColorStop(0, "rgba(255,255,255,1)");
+    nucleo.addColorStop(0.35, `rgba(185,246,255,${0.75 + energia * 0.2})`);
+    nucleo.addColorStop(1, "rgba(95,227,255,0)");
     ctx.fillStyle = nucleo; ctx.beginPath(); ctx.arc(cx, cy, R * 0.3, 0, Math.PI * 2); ctx.fill();
 
     requestAnimationFrame(quadro);
   }
   requestAnimationFrame(quadro);
 
+  // ------------------------------------------------------------------ boot sequence
+  function boot() {
+    const el = $("#boot"), log = $("#boot-log");
+    const linhas = [
+      `J.A.R.V.I.S. · inicializando sistemas`,
+      `núcleo de linguagem ........... <b>OK</b> ${modelo}`,
+      `ponte com o computador ........ ${DEMO ? "<em>PRÉ-VISUALIZAÇÃO</em>" : "<b>OK</b> 127.0.0.1"}`,
+      `reconhecimento de voz ......... ${SR ? "<b>OK</b> pt-BR" : "<em>INDISPONÍVEL</em>"}`,
+      `protocolo de autorização ...... <b>ATIVO</b>`,
+      `memória de longo prazo ........ <b>OK</b>`,
+      ``,
+      `Bem-vindo de volta, senhor.`,
+    ];
+    let encerrado = false;
+    const fim = () => { if (encerrado) return; encerrado = true; el.classList.add("fim"); setTimeout(() => (el.hidden = true), 700); };
+    $("#pular").addEventListener("click", fim);
+    el.addEventListener("click", fim);
+    if (reduzMovimento) return fim();
+    let i = 0;
+    const h = setInterval(() => {
+      log.innerHTML += (i ? "\n" : "") + linhas[i];
+      i++;
+      if (i >= linhas.length) { clearInterval(h); setTimeout(fim, 650); }
+    }, 170);
+  }
+
   // ------------------------------------------------------------------ demo (preview without the PC)
   function DEMO_PAINEL() {
     const hoje = new Date(); const iso = (h, m) => { const d = new Date(hoje); d.setHours(h, m, 0, 0); return d.toISOString(); };
+    const base = histCpu.length ? histCpu[histCpu.length - 1] : 22;
     return {
-      sistema: { sistema: "Windows 11 (exemplo)", cpu_percent: 18 + Math.round(Math.random() * 14), ram_percent: 57, disco_livre_gb: 212.4, bateria_percent: 81, carregando: false },
+      modelo: "claude-opus-5-5",
+      sistema: { sistema: "Windows 11 · dados de exemplo", cpu_percent: Math.max(4, Math.min(88, base + (Math.random() - 0.45) * 18)), ram_percent: 57, disco_livre_gb: 212.4, disco_total_gb: 476, bateria_percent: 81, carregando: false },
       memorias: ["Academia às 7h, de segunda a sexta (exemplo)", "Prefere café sem açúcar (exemplo)"],
       google: {
         conectado: true,
@@ -870,12 +1233,13 @@ body[data-modo="pensando"] .estado { color: var(--gold); }
     else if (/e-?mail/.test(n)) { await passos("ler_emails_recentes"); resp = "Três e-mails não lidos: a fatura do banco, um pedido enviado e a resposta do Carlos sobre o projeto. São exemplos nesta demonstração."; }
     else if (/abr|abre|toca|tocar|volume|pausa|musica/.test(n)) { await passos(/toca|musica/.test(n) ? "tocar_no_youtube" : /volume/.test(n) ? "controlar_volume" : "abrir_programa"); resp = "No seu computador eu já teria feito isso, senhor. Aqui é apenas a pré-visualização."; }
     else if (/lembr/.test(n)) { await passos("lembrar"); resp = "Anotado, senhor. Na versão instalada isso fica salvo de verdade."; }
+    else if (/^(oi|ola|bom dia|boa tarde|boa noite|e ai)\b/.test(n)) resp = "Olá, senhor. Todos os sistemas operando normalmente. Em que posso ajudar?";
     else resp = "Esta é só a pré-visualização, senhor. Instalado no seu PC, eu respondo de verdade usando o Claude e controlo o computador, o Gmail e a agenda.";
     tratarEvento({ tipo: "resposta", texto: resp });
   }
   async function demoDecidir(ok) {
     await espera(600);
-    if (ok) await (async () => { tratarEvento({ tipo: "ferramenta", nome: "executando" }); await espera(400); })();
+    if (ok) { tratarEvento({ tipo: "ferramenta", nome: "executando" }); await espera(400); }
     tratarEvento({ tipo: "resposta", texto: demoAposDecidir ? demoAposDecidir(ok) : "Certo." });
     demoAposDecidir = null;
   }
@@ -883,9 +1247,13 @@ body[data-modo="pensando"] .estado { color: var(--gold); }
   // ------------------------------------------------------------------ start
   atualizarMudo();
   setModo("ocioso");
+  atualizarTicker();
+  chip("mic", SR ? "" : "warn");
+  registrar("sistemas online", "ok");
   if (DEMO) {
     $("#faixa-demo").hidden = false;
-    $("#chip-ia").className = "chip warn"; $("#chip-pc").className = "chip warn";
+    chip("ia", "warn"); chip("pc", "warn");
+    registrar("modo pré-visualização", "aut");
     addMsg("voce", "Jarvis, o que tenho hoje?");
     addMsg("jarvis", "Bom dia, senhor. Reunião com a equipe às dez, almoço com a Ana ao meio-dia e meia e dentista às quatro. Também há três e-mails não lidos.");
     addMsg("jarvis", "Esta é uma pré-visualização com dados de exemplo. Experimente digitar “abre o Spotify” ou “manda um e-mail pro Carlos”.");
@@ -894,6 +1262,7 @@ body[data-modo="pensando"] .estado { color: var(--gold); }
     ouvirEventos();
   }
   atualizarPainel();
-  setInterval(atualizarPainel, DEMO ? 8000 : 20000);
+  setInterval(atualizarPainel, 4000);
+  boot();
 })();
 </script>

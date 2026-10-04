@@ -311,6 +311,7 @@ def info_sistema() -> dict:
         "cpu_percent": psutil.cpu_percent(interval=0.5),
         "ram_percent": psutil.virtual_memory().percent,
         "disco_livre_gb": round(shutil.disk_usage(HOME.anchor or "/").free / 1e9, 1),
+        "disco_total_gb": round(shutil.disk_usage(HOME.anchor or "/").total / 1e9, 1),
     }
     bateria = psutil.sensors_battery() if hasattr(psutil, "sensors_battery") else None
     if bateria:
