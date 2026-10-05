@@ -16,6 +16,17 @@ from typing import Any, Callable
 SEGURO = "seguro"
 CONFIRMAR = "confirmar"
 
+# Prefixo que acompanha toda falha de ferramenta: deixa claro ao modelo que nada foi feito,
+# para ele não responder "pronto" ou "preparei" quando a ação falhou.
+PREFIXO_FALHA = (
+    "FALHOU — a ação NÃO foi feita. Conte ao usuário exatamente o motivo abaixo; "
+    "não diga que fez, preparou ou abriu nada:\n"
+)
+
+
+class FalhaFerramenta(Exception):
+    """Levantada por uma ferramenta quando não conseguiu fazer o pedido (mensagem já explicada ao usuário)."""
+
 
 @dataclass
 class Ferramenta:

@@ -19,7 +19,6 @@ from typing import Any
 
 SMTP_HOST, SMTP_PORTA = "smtp.gmail.com", 465
 IMAP_HOST = "imap.gmail.com"
-PASTA_TODOS = '"[Gmail]/All Mail"'
 EMAIL_VALIDO = re.compile(r"^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$")
 
 
@@ -32,8 +31,8 @@ def credenciais() -> tuple[str, str]:
     senha = os.getenv("GMAIL_SENHA_APP", "").replace(" ", "").strip()
     if not endereco or not senha:
         raise GmailNaoConfigurado(
-            "O Gmail ainda não está conectado. Peça ao usuário para rodar o instalar_jarvis.bat "
-            "(ou python -m jarvis --gmail) e colar a senha de app do Google."
+            "O Gmail ainda não está conectado. Para conectar, dê dois cliques em conectar_gmail.bat "
+            "na pasta do JARVIS e crie uma senha de app."
         )
     return endereco, senha
 
@@ -90,17 +89,45 @@ def _corpo_texto(msg: email.message.Message) -> str:
 # ---------------------------------------------------------------------------
 
 
-def testar_login(endereco: str, senha: str) -> str | None:
-    """None se o login funcionou; senão, a explicação do problema."""
+def _explicar(e: Exception) -> str:
+    texto = str(e).lower()
+    if isinstance(e, smtplib.SMTPAuthenticationError) or "authenticationfailed" in texto or "invalid credentials" in texto:
+        return "o Google recusou o endereço ou a senha de app"
+    if isinstance(e, OSError):
+        return f"sem conexão com o Gmail ({type(e).__name__})"
+    return f"{type(e).__name__}: {e}"
+
+
+def diagnosticar(endereco: str, senha: str) -> dict[str, str | None]:
+    """Testa envio (SMTP) e leitura (IMAP). Cada chave vale None se funcionou, ou a explicação do erro."""
+    senha = senha.replace(" ", "")
+    resultado: dict[str, str | None] = {}
     try:
         with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORTA, timeout=20) as smtp:
-            smtp.login(endereco, senha.replace(" ", ""))
-        return None
-    except smtplib.SMTPAuthenticationError:
-        return ("O Google recusou o login. Confira o e-mail e a senha de app (16 letras) — "
-                "a senha normal da conta não funciona aqui.")
-    except OSError as e:
-        return f"Não consegui falar com o Gmail ({type(e).__name__}). Verifique a internet."
+            smtp.login(endereco, senha)
+        resultado["envio"] = None
+    except Exception as e:
+        resultado["envio"] = _explicar(e)
+    try:
+        imap = imaplib.IMAP4_SSL(IMAP_HOST, timeout=20)
+        try:
+            imap.login(endereco, senha)
+        finally:
+            try:
+                imap.logout()
+            except Exception:
+                pass
+        resultado["leitura"] = None
+    except Exception as e:
+        resultado["leitura"] = _explicar(e)
+    return resultado
+
+
+def testar_login(endereco: str, senha: str) -> str | None:
+    """None se envio e leitura funcionaram; senão, a explicação do primeiro problema."""
+    d = diagnosticar(endereco, senha)
+    erros = [f"{'enviar' if k == 'envio' else 'ler'} e-mails: {v}" for k, v in d.items() if v]
+    return "; ".join(erros) or None
 
 
 def enviar(para: list[str], assunto: str, corpo: str) -> None:
@@ -118,17 +145,36 @@ def enviar(para: list[str], assunto: str, corpo: str) -> None:
 
 def _conectar() -> imaplib.IMAP4_SSL:
     endereco, senha = credenciais()
-    imap = imaplib.IMAP4_SSL(IMAP_HOST)
+    imap = imaplib.IMAP4_SSL(IMAP_HOST, timeout=20)
     imap.login(endereco, senha)
     return imap
+
+
+def pasta_todos(imap: Any) -> str:
+    """Pasta 'Todos os e-mails' (nome muda com o idioma da conta), achada pelo atributo \\All."""
+    try:
+        status, linhas = imap.list()
+    except Exception:
+        return "INBOX"
+    for linha in linhas or [] if status == "OK" else []:
+        texto = linha.decode("utf-8", "replace") if isinstance(linha, bytes) else str(linha)
+        if "\\All" in texto:
+            achado = re.search(r'"([^"]+)"\s*$', texto) or re.search(r"(\S+)\s*$", texto)
+            if achado:
+                return '"' + achado.group(1) + '"'
+    return "INBOX"
+
+
+def _selecionar(imap: Any) -> None:
+    status, _ = imap.select(pasta_todos(imap), readonly=True)
+    if status != "OK":
+        imap.select("INBOX", readonly=True)
 
 
 def recentes(filtro: str = "in:inbox", quantidade: int = 5) -> list[dict[str, Any]]:
     imap = _conectar()
     try:
-        status, _ = imap.select(PASTA_TODOS, readonly=True)
-        if status != "OK":
-            imap.select("INBOX", readonly=True)
+        _selecionar(imap)
         # X-GM-RAW aceita a mesma busca da caixa do Gmail (is:unread, from:fulano, newer_than:2d...)
         status, dados = imap.uid("SEARCH", "X-GM-RAW", '"' + filtro.replace('"', "") + '"')
         uids = (dados[0] or b"").split() if status == "OK" else []
@@ -168,9 +214,7 @@ def recentes(filtro: str = "in:inbox", quantidade: int = 5) -> list[dict[str, An
 def ler(uid: str) -> dict[str, Any]:
     imap = _conectar()
     try:
-        status, _ = imap.select(PASTA_TODOS, readonly=True)
-        if status != "OK":
-            imap.select("INBOX", readonly=True)
+        _selecionar(imap)
         status, partes = imap.uid("FETCH", uid.encode(), "(BODY.PEEK[])")
         bruto = next((p[1] for p in partes or [] if isinstance(p, tuple)), None)
         if status != "OK" or bruto is None:

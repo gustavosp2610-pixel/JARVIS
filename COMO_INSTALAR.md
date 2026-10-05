@@ -45,6 +45,7 @@ No final ele cria o atalho **JARVIS** na Área de Trabalho. É só dar dois cliq
 | O que aparece | O que fazer |
 |---|---|
 | "Atingi o limite gratuito do Gemini" | O plano grátis tem limite por minuto e por dia. Espere alguns minutos. |
+| Gmail recusou a senha / não envia e-mails | Dê dois cliques em `conectar_gmail.bat` e cole uma senha de app nova (16 letras, criada em myaccount.google.com/apppasswords). |
 | "Minha chave do Gemini parece inválida" | Dê dois cliques em `instalar_jarvis.bat` de novo e cole outra chave. |
 | Voz robótica | Na janela preta: feche, e rode `.venv\Scripts\python.exe -m jarvis --testar-voz` dentro da pasta para ver o motivo. |
 | Microfone não funciona | Clique no cadeado ao lado do endereço `localhost:8765` e permita o microfone. |

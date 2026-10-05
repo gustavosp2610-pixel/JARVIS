@@ -14,6 +14,7 @@ from __future__ import annotations
 import base64
 import logging
 import threading
+import time
 from typing import Any, Callable
 
 from jarvis import tools
@@ -26,6 +27,13 @@ RETENTAVEIS = {429, 500, 502, 503, 504}
 ESPERAS_PRINCIPAL = [2, 4, 8]  # segundos entre novas tentativas no modelo principal
 ESPERAS_RESERVA = [3]
 log = logging.getLogger("jarvis")
+PAUSA_COTA = 3600  # segundos sem usar um modelo cuja cota (diária/por hora) acabou
+_ESGOTADOS: dict[str, float] = {}  # modelo -> até quando evitar
+
+
+def _cota_esgotada(mensagem: str) -> bool:
+    m = mensagem.lower()
+    return "exceeded your current quota" in m or "quota exceeded" in m or "per day" in m
 
 _COORD = "Coordenada na escala 0 a 1000 da última captura de ver_tela (0,0 = canto superior esquerdo; 1000,1000 = inferior direito)."
 
@@ -182,16 +190,26 @@ class CerebroGemini:
         modelos = [config.modelo_gemini]
         if config.modelo_gemini_reserva and config.modelo_gemini_reserva != config.modelo_gemini:
             modelos.append(config.modelo_gemini_reserva)
+        # Cota esgotada há pouco? Vai direto para o próximo modelo, sem esperar.
+        agora = time.monotonic()
+        disponiveis = [m for m in modelos if _ESGOTADOS.get(m, 0) <= agora] or modelos[-1:]
         ultimo: Exception | None = None
-        for i, modelo in enumerate(modelos):
-            esperas = ESPERAS_PRINCIPAL if i == 0 else ESPERAS_RESERVA
+        for i, modelo in enumerate(disponiveis):
+            esperas = ESPERAS_PRINCIPAL if modelo == modelos[0] else ESPERAS_RESERVA
             for tentativa in range(len(esperas) + 1):
                 try:
                     return self.cliente.models.generate_content(model=modelo, **kwargs)
                 except errors.APIError as e:
                     ultimo = e
                     codigo = getattr(e, "code", None)
-                    log.warning("Gemini %s respondeu erro %s: %s", modelo, codigo, getattr(e, "message", e))
+                    mensagem = str(getattr(e, "message", "") or e)
+                    if codigo == 429 and _cota_esgotada(mensagem) and i + 1 < len(disponiveis):
+                        _ESGOTADOS[modelo] = time.monotonic() + PAUSA_COTA
+                        log.warning(
+                            "Cota do %s esgotada; usando %s pela próxima hora.", modelo, disponiveis[i + 1]
+                        )
+                        break
+                    log.warning("Gemini %s respondeu erro %s: %s", modelo, codigo, mensagem)
                     if codigo not in RETENTAVEIS:
                         raise
                     if codigo == 429 and tentativa >= 1:
@@ -199,8 +217,8 @@ class CerebroGemini:
                     if tentativa < len(esperas):
                         if self._esperar(esperas[tentativa]):
                             raise  # usuário apertou Parar durante a espera
-            if i + 1 < len(modelos):
-                log.warning("Trocando para o modelo reserva %s", modelos[i + 1])
+            if i + 1 < len(disponiveis) and _ESGOTADOS.get(modelo, 0) <= time.monotonic():
+                log.warning("Trocando para o modelo reserva %s", disponiveis[i + 1])
         assert ultimo is not None
         raise ultimo
 
@@ -306,8 +324,10 @@ class CerebroGemini:
         self.ao_usar_ferramenta(nome)
         try:
             return {"resultado": tools.executar(nome, args) or "Feito."}, []
+        except tools.FalhaFerramenta as e:
+            return {"erro": tools.PREFIXO_FALHA + str(e)}, []
         except Exception as e:
-            return {"erro": f"{type(e).__name__}: {e}"}, []
+            return {"erro": f"{tools.PREFIXO_FALHA}{type(e).__name__}: {e}"}, []
 
     # ------------------------------------------------------------------
     def responder(self, texto: str) -> str:

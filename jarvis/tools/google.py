@@ -9,6 +9,7 @@ Configuração (uma vez só — passo a passo no README):
 from __future__ import annotations
 
 import base64
+import logging
 import imaplib
 import json
 import smtplib
@@ -19,7 +20,9 @@ from functools import lru_cache
 from typing import Any
 
 from jarvis.config import config
-from jarvis.tools import CONFIRMAR, ferramenta
+from jarvis.tools import CONFIRMAR, FalhaFerramenta, ferramenta, gmail_simples
+
+log = logging.getLogger("jarvis")
 
 ESCOPOS = [
     "https://www.googleapis.com/auth/gmail.readonly",
@@ -84,19 +87,35 @@ def _corpo_texto(payload: dict) -> str:
     return ""
 
 
+COMO_CONECTAR = "Para conectar, dê dois cliques em conectar_gmail.bat na pasta do JARVIS e crie uma senha de app nova."
+
+
+def _senha_recusada(e: Exception) -> bool:
+    if isinstance(e, smtplib.SMTPAuthenticationError):
+        return True
+    texto = str(e).lower()
+    return isinstance(e, imaplib.IMAP4.error) and ("authenticationfailed" in texto or "invalid credentials" in texto)
+
+
 def _protegido(func):
-    """Converte erros de configuração/API em texto para o Claude explicar ao usuário."""
+    """Converte erros de configuração/conexão em FalhaFerramenta, com explicação para o usuário."""
 
     def embrulho(*args, **kwargs):
         try:
             return func(*args, **kwargs)
-        except GoogleNaoConfigurado as e:
-            return str(e)
-        except (smtplib.SMTPAuthenticationError, imaplib.IMAP4.error):
-            return ("O Google recusou a senha de app do Gmail. Peça ao usuário para rodar "
-                    "python -m jarvis --gmail e criar uma senha de app nova.")
-        except ImportError:
-            return "Bibliotecas do Google não instaladas (pip install -r requirements.txt)."
+        except FalhaFerramenta:
+            raise
+        except (GoogleNaoConfigurado, gmail_simples.GmailNaoConfigurado) as e:
+            raise FalhaFerramenta(str(e)) from e
+        except ImportError as e:
+            raise FalhaFerramenta("Bibliotecas do Google não instaladas (rode o instalar_jarvis.bat de novo).") from e
+        except (smtplib.SMTPException, imaplib.IMAP4.error, OSError) as e:
+            if _senha_recusada(e):
+                raise FalhaFerramenta(
+                    "O Google recusou o login do Gmail (endereço ou senha de app errados). " + COMO_CONECTAR
+                ) from e
+            log.warning("Gmail falhou em %s: %s: %s", func.__name__, type(e).__name__, e)
+            raise FalhaFerramenta(f"Não consegui falar com o Gmail agora ({type(e).__name__}: {e}).") from e
 
     embrulho.__name__ = func.__name__
     embrulho.__doc__ = func.__doc__
@@ -109,10 +128,7 @@ def _protegido(func):
 # ---------------------------------------------------------------------------
 
 ARQUIVO_EMAILS = config.pasta_dados / "emails.json"
-SEM_GMAIL = (
-    "O Gmail ainda não está conectado. Peça ao usuário para rodar o instalar_jarvis.bat "
-    "(ou python -m jarvis --gmail) e colar a senha de app do Google."
-)
+SEM_GMAIL = "O Gmail ainda não está conectado. " + COMO_CONECTAR
 
 
 def _usar_oauth() -> bool:
@@ -202,7 +218,7 @@ def ler_emails_recentes(filtro: str | None = None, quantidade: int | None = None
         from jarvis.tools import gmail_simples
 
         if not gmail_simples.configurado():
-            return SEM_GMAIL
+            raise FalhaFerramenta(SEM_GMAIL)
         return gmail_simples.recentes(filtro or "in:inbox", qtd) or "Nenhum e-mail encontrado."
     gmail = _servico("gmail", "v1")
     resp = gmail.users().messages().list(userId="me", q=filtro or "in:inbox", maxResults=qtd).execute()
@@ -236,7 +252,7 @@ def ler_email(id: str) -> Any:
         from jarvis.tools import gmail_simples
 
         if not gmail_simples.configurado():
-            return SEM_GMAIL
+            raise FalhaFerramenta(SEM_GMAIL)
         return gmail_simples.ler(id)
     msg = _servico("gmail", "v1").users().messages().get(userId="me", id=id, format="full").execute()
     return {
@@ -272,7 +288,7 @@ def enviar_email(para: str, assunto: str, corpo: str) -> str:
         from jarvis.tools import gmail_simples
 
         if not gmail_simples.configurado():
-            return SEM_GMAIL
+            raise FalhaFerramenta(SEM_GMAIL)
         gmail_simples.enviar(destinatarios, assunto, corpo)
         return f"E-mail enviado para {', '.join(destinatarios)}."
     mime = MIMEText(corpo, "plain", "utf-8")

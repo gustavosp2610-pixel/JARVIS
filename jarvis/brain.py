@@ -119,8 +119,10 @@ class Cerebro:
                 self.ao_usar_ferramenta(bloco.name)
                 try:
                     resultado["content"] = tools.executar(bloco.name, entrada) or "Feito."
+                except tools.FalhaFerramenta as e:
+                    resultado |= {"content": tools.PREFIXO_FALHA + str(e), "is_error": True}
                 except Exception as e:  # o erro volta para o Claude explicar/tentar outra coisa
-                    resultado |= {"content": f"Erro: {type(e).__name__}: {e}", "is_error": True}
+                    resultado |= {"content": f"{tools.PREFIXO_FALHA}{type(e).__name__}: {e}", "is_error": True}
             resultados.append(resultado)
         return resultados
 

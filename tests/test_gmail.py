@@ -84,27 +84,62 @@ def test_contato_por_nome(gmail_ligado, smtp):
     assert "Não tenho o e-mail de 'tia Ana'" in str(pytest.raises(ValueError, google.resolver_destinatarios, "tia Ana").value)
 
 
-def test_senha_recusada_vira_mensagem(gmail_ligado, smtp):
+def test_senha_recusada_vira_falha(gmail_ligado, smtp):
     smtp.recusar = True
-    assert "recusou a senha de app" in google.enviar_email("a@b.com", "x", "y")
+    with pytest.raises(tools.FalhaFerramenta, match="recusou o login do Gmail.*conectar_gmail.bat"):
+        google.enviar_email("a@b.com", "x", "y")
 
 
 def test_sem_gmail_configurado(monkeypatch, tmp_path):
     monkeypatch.delenv("GMAIL_ENDERECO", raising=False)
     monkeypatch.delenv("GMAIL_SENHA_APP", raising=False)
     monkeypatch.setattr(google, "TOKEN", tmp_path / "x.json")
-    assert "não está conectado" in google.enviar_email("a@b.com", "x", "y")
-    assert "não está conectado" in google.ler_emails_recentes()
+    for chamada in (lambda: google.enviar_email("a@b.com", "x", "y"), google.ler_emails_recentes):
+        with pytest.raises(tools.FalhaFerramenta, match="não está conectado"):
+            chamada()
 
 
-def test_testar_login(smtp):
+class ImapLogin:
+    recusar = False
+
+    def __init__(self, host, timeout=None):
+        assert host == "imap.gmail.com" and timeout
+
+    def login(self, u, s):
+        if ImapLogin.recusar:
+            raise gmail_simples.imaplib.IMAP4.error(b"[AUTHENTICATIONFAILED] Invalid credentials (Failure)")
+
+    def logout(self):
+        pass
+
+
+def test_diagnostico_envio_e_leitura(smtp, monkeypatch):
+    ImapLogin.recusar = False
+    monkeypatch.setattr(gmail_simples.imaplib, "IMAP4_SSL", ImapLogin)
     assert gmail_simples.testar_login("a@gmail.com", "x y") is None
     smtp.recusar = True
-    assert "recusou o login" in gmail_simples.testar_login("a@gmail.com", "x")
+    d = gmail_simples.diagnosticar("a@gmail.com", "x")
+    assert d == {"envio": "o Google recusou o endereço ou a senha de app", "leitura": None}
+    ImapLogin.recusar = True
+    assert "ler e-mails: o Google recusou" in gmail_simples.testar_login("a@gmail.com", "x")
+
+
+def test_pasta_todos_em_portugues():
+    class Lista:
+        def list(self):
+            return "OK", [b'(\\HasNoChildren) "/" "INBOX"',
+                          b'(\\All \\HasNoChildren) "/" "[Gmail]/Todos os e-mails"']
+
+    assert gmail_simples.pasta_todos(Lista()) == '"[Gmail]/Todos os e-mails"'
+
+    class SemList:
+        pass
+
+    assert gmail_simples.pasta_todos(SemList()) == "INBOX"
 
 
 class ImapFalso:
-    def __init__(self, host):
+    def __init__(self, host, timeout=None):
         self.comandos = []
 
     def login(self, u, s):

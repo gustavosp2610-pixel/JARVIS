@@ -7,6 +7,7 @@ e grava tudo no arquivo .env.
 from __future__ import annotations
 
 import os
+import re
 import webbrowser
 from pathlib import Path
 
@@ -19,6 +20,7 @@ console = Console()
 ARQUIVO_ENV = RAIZ / ".env"
 LINK_CHAVE = "https://aistudio.google.com/apikey"
 LINK_SENHA_APP = "https://myaccount.google.com/apppasswords"
+TENTATIVAS_GMAIL = 3
 
 
 def configurar_gmail() -> bool:
@@ -37,25 +39,43 @@ def configurar_gmail() -> bool:
         "    myaccount.google.com → Segurança.)\n"
     )
     webbrowser.open(LINK_SENHA_APP)
-    while True:
-        endereco = Prompt.ask("Seu endereço do Gmail", default=atual.get("GMAIL_ENDERECO") or None)
-        try:
-            endereco = limpar_endereco(endereco or "")
-            break
-        except ValueError as e:
-            console.print(f"[red]{e}[/red]")
-    senha = Prompt.ask("Cole a senha de app (16 letras)").replace(" ", "").strip()
-    console.print("Testando o login no Gmail…")
-    erro = testar_login(endereco, senha)
-    if erro:
-        console.print(f"[red]{erro}[/red]")
-        if not Confirm.ask("Salvar mesmo assim?", default=False):
-            return False
-    else:
-        console.print("[green]Gmail conectado![/green]")
-    gravar_env({"GMAIL_ENDERECO": endereco, "GMAIL_SENHA_APP": senha})
-    os.environ.update({"GMAIL_ENDERECO": endereco, "GMAIL_SENHA_APP": senha})
-    return not erro
+    for tentativa in range(1, TENTATIVAS_GMAIL + 1):
+        while True:
+            endereco = Prompt.ask("Seu endereço do Gmail", default=atual.get("GMAIL_ENDERECO") or None)
+            try:
+                endereco = limpar_endereco(endereco or "")
+                break
+            except ValueError as e:
+                console.print(f"[red]{e}[/red]")
+        senha = Prompt.ask("Cole a senha de app (16 letras)").replace(" ", "").strip()
+        if not re.fullmatch(r"[A-Za-z]{16}", senha):
+            console.print(
+                f"[yellow]A senha de app tem exatamente 16 letras (você colou {len(senha)} caracteres). "
+                "Não use a senha normal da sua conta nem a chave do Gemini.[/yellow]"
+            )
+            erro = "formato"
+        else:
+            console.print("Testando envio e leitura no Gmail…")
+            erro = testar_login(endereco, senha)
+        if not erro:
+            gravar_env({"GMAIL_ENDERECO": endereco, "GMAIL_SENHA_APP": senha})
+            os.environ.update({"GMAIL_ENDERECO": endereco, "GMAIL_SENHA_APP": senha})
+            console.print("[green]Gmail conectado![/green] Reinicie o JARVIS para usar.")
+            return True
+        if erro != "formato":
+            console.print(f"[red]Não funcionou: {erro}.[/red]")
+            console.print(
+                "Causas mais comuns:\n"
+                "  • colou a senha normal da conta (precisa ser a senha de app de 16 letras);\n"
+                "  • a verificação em duas etapas está desligada (myaccount.google.com → Segurança);\n"
+                "  • o endereço do Gmail está com erro de digitação;\n"
+                "  • a senha foi copiada pela metade. Na página do Google, crie uma nova e copie inteira."
+            )
+        if tentativa < TENTATIVAS_GMAIL and Confirm.ask("Tentar de novo?", default=True):
+            continue
+        break
+    console.print("Nada foi salvo. Quando quiser, dê dois cliques em [b]conectar_gmail.bat[/b] para tentar de novo.")
+    return False
 
 
 def ler_env(arquivo: Path = ARQUIVO_ENV) -> dict[str, str]:
@@ -142,7 +162,14 @@ def configurar() -> None:
     console.print(f"[green]Configuração salva em[/green] {ARQUIVO_ENV}")
 
     if atual.get("GMAIL_SENHA_APP"):
-        if not Confirm.ask("O Gmail já está conectado. Manter assim?", default=True):
+        from jarvis.tools.gmail_simples import testar_login
+
+        console.print("Conferindo o Gmail salvo…")
+        erro_gmail = testar_login(atual.get("GMAIL_ENDERECO", ""), atual["GMAIL_SENHA_APP"])
+        if erro_gmail:
+            console.print(f"[yellow]O Gmail salvo não funciona ({erro_gmail}). Vamos conectar de novo.[/yellow]")
+            configurar_gmail()
+        elif not Confirm.ask("O Gmail já está conectado e funcionando. Manter assim?", default=True):
             configurar_gmail()
     elif Confirm.ask("Quer conectar o Gmail agora (para ele ler e enviar e-mails)?", default=True):
         configurar_gmail()
