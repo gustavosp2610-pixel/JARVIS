@@ -6,6 +6,7 @@ e grava tudo no arquivo .env.
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 import webbrowser
@@ -101,20 +102,35 @@ def gravar_env(novos: dict[str, str], arquivo: Path = ARQUIVO_ENV) -> None:
     arquivo.write_text("\n".join(linhas) + "\n", encoding="utf-8")
 
 
-def testar_chave_gemini(chave: str, modelo: str) -> str | None:
-    """Faz uma pergunta curtinha. Devolve None se funcionou, ou a explicação do erro."""
+def formato_chave_ok(chave: str) -> bool:
+    """Chaves do Google AI Studio: formato antigo 'AIza...' ou novo 'AQ....'."""
+    return bool(re.fullmatch(r"(AIza[\w-]{30,}|AQ\.[\w.-]{20,})", chave.strip()))
+
+
+def testar_chave_gemini(chave: str, modelo: str) -> tuple[str | None, bool]:
+    """Faz uma pergunta curtinha. Devolve (erro, chave_invalida); erro None = funcionou."""
     from google import genai
-    from google.genai import errors
+    from google.genai import errors, types
 
     from jarvis.cerebro_gemini import _mensagem_erro
 
     try:
-        resp = genai.Client(api_key=chave).models.generate_content(model=modelo, contents="Responda apenas: ok")
-        return None if resp.text else "A chave respondeu vazio."
+        cliente = genai.Client(api_key=chave, http_options=types.HttpOptions(timeout=30_000))
+        resp = cliente.models.generate_content(
+            model=modelo,
+            contents="Responda apenas: ok",
+            config=types.GenerateContentConfig(
+                automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True)
+            ),
+        )
+        return (None, False) if resp.text else ("o Gemini respondeu vazio", False)
     except errors.APIError as e:
-        return _mensagem_erro(e)
+        codigo = getattr(e, "code", None)
+        invalida = codigo in (400, 401, 403) and "key" in str(getattr(e, "message", e)).lower()
+        return _mensagem_erro(e), invalida
     except Exception as e:
-        return f"Não consegui falar com o Google ({type(e).__name__}). Verifique a internet."
+        logging.getLogger("jarvis").exception("Teste da chave do Gemini falhou")
+        return f"{type(e).__name__}: {e}", False
 
 
 def configurar() -> None:
@@ -140,12 +156,23 @@ def configurar() -> None:
         while not chave:
             chave = Prompt.ask("Cole a chave aqui").strip().strip('"')
 
+    if not formato_chave_ok(chave):
+        console.print(
+            "[yellow]Isso não parece uma chave do Gemini (elas começam com 'AIza' ou 'AQ.'). "
+            "Confira se copiou a chave inteira.[/yellow]"
+        )
     console.print("Testando a chave…")
-    erro = testar_chave_gemini(chave, modelo)
-    if erro:
+    erro, invalida = testar_chave_gemini(chave, modelo)
+    if erro and invalida:
         console.print(f"[red]A chave não funcionou:[/red] {erro}")
         if not Confirm.ask("Salvar mesmo assim?", default=False):
-            console.print("Nada foi salvo. Rode [b]python -m jarvis --configurar[/b] de novo quando quiser.")
+            console.print("Nada foi salvo. Rode o instalar_jarvis.bat de novo quando quiser.")
+            return
+    elif erro:
+        console.print(f"[yellow]Não consegui testar a chave agora:[/yellow] {erro}")
+        console.print("Isso não quer dizer que a chave esteja errada. Dá para salvar e testar abrindo o JARVIS.")
+        if not Confirm.ask("Salvar a chave?", default=True):
+            console.print("Nada foi salvo. Rode o instalar_jarvis.bat de novo quando quiser.")
             return
     else:
         console.print("[green]Chave funcionando![/green]")

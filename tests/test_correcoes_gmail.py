@@ -101,3 +101,36 @@ def test_configurar_gmail_desiste_sem_salvar(monkeypatch):
     monkeypatch.setattr(configurar.Prompt, "ask", Roteiro(["g@gmail.com", "abcdefghijklmnop"]))
     monkeypatch.setattr(configurar.Confirm, "ask", Roteiro([False]))
     assert configurar.configurar_gmail() is False and gravados == []
+
+
+def test_teste_da_chave_gemini(api_falsa, monkeypatch):  # noqa: F811
+    from google import genai as genai_mod
+
+    api = api_falsa([
+        ok({"text": "ok"}),
+        (400, {"error": {"code": 400, "message": "API key not valid. Please pass a valid API key.", "status": "INVALID_ARGUMENT"}}),
+    ])
+    monkeypatch.setattr(genai_mod, "Client", lambda **kw: api.cliente)
+    assert configurar.testar_chave_gemini("AQ.chave", "gemini-flash-latest") == (None, False)
+    corpo = api.pedidos[0]
+    assert "automaticFunctionCalling" not in str(corpo)  # config local do SDK, não vai na requisição
+    erro, invalida = configurar.testar_chave_gemini("AQ.chave", "gemini-flash-latest")
+    assert invalida and "chave do Gemini" in erro
+
+
+def test_teste_da_chave_erro_estranho_nao_culpa_a_chave(monkeypatch):
+    from google import genai as genai_mod
+
+    class Quebrado:
+        def __init__(self, **kw):
+            raise RuntimeError("event loop is closed")
+
+    monkeypatch.setattr(genai_mod, "Client", Quebrado)
+    erro, invalida = configurar.testar_chave_gemini("AQ.chave", "gemini-flash-latest")
+    assert erro == "RuntimeError: event loop is closed" and invalida is False
+
+
+def test_formato_da_chave():
+    assert configurar.formato_chave_ok("AQ.Exemplo_chave_falsa_1234567890abcdefXYZ")
+    assert configurar.formato_chave_ok("AIza" + "B" * 35)
+    assert not configurar.formato_chave_ok("sk-ant-123")
