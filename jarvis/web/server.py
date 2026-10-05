@@ -7,7 +7,6 @@ abertos no seu navegador não conseguem mandar ordens para o JARVIS.
 
 from __future__ import annotations
 
-import asyncio
 import json
 import secrets
 import threading
@@ -91,31 +90,26 @@ class Estado:
         return dados
 
 
-def _sintetizar(texto: str) -> bytes:
-    import edge_tts
-
-    async def gerar() -> bytes:
-        audio = b""
-        async for parte in edge_tts.Communicate(texto, config.voz).stream():
-            if parte["type"] == "audio":
-                audio += parte["data"]
-        return audio
-
-    return asyncio.run(gerar())
-
-
-def criar_servidor(porta: int = 8765) -> tuple[ThreadingHTTPServer, str]:
+def criar_servidor(porta: int = 8765, agendar: bool = True) -> tuple[ThreadingHTTPServer, str]:
+    from jarvis import preferencias
     from jarvis.brain import Cerebro
     from jarvis.memory import memoria
+    from jarvis.tarefas import Agendador, tarefas
     from jarvis.tools import computer
+    from jarvis.voice import speaker
 
     token = secrets.token_urlsafe(24)
     estado = Estado()
     cerebro = Cerebro(
         confirmar=estado.confirmar,
         ao_usar_ferramenta=lambda nome: estado.publicar("ferramenta", nome=nome),
+        ao_progresso=lambda texto: estado.publicar("progresso", texto=texto),
+        ao_acao_pc=lambda texto: estado.publicar("acao_pc", texto=texto),
     )
     computer.avisar = lambda texto: estado.publicar("aviso", texto=texto)
+    if agendar:
+        Agendador(computer.avisar).start()
+    cache_vozes: list[dict[str, Any]] = []
     hosts_validos: set[str] = set()  # preenchido depois que a porta real é conhecida
 
     def processar(texto: str) -> None:
@@ -191,15 +185,25 @@ def criar_servidor(porta: int = 8765) -> tuple[ThreadingHTTPServer, str]:
                         "modelo": config.modelo,
                         "sistema": info_sistema(),
                         "memorias": memoria.fatos(),
+                        "tarefas": tarefas.tarefas(incluir_feitas=False)[:12],
+                        "lembretes": tarefas.lembretes()[:6],
+                        "voz": preferencias.carregar(),
                         "google": estado.dados_google(),
                     }
                 )
+            if url.path == "/api/vozes":
+                if not cache_vozes:
+                    try:
+                        cache_vozes.extend(speaker.listar_vozes())
+                    except Exception as e:
+                        return self._json({"erro": f"Não consegui listar as vozes: {e}"}, 503)
+                return self._json({"vozes": cache_vozes, "atual": preferencias.carregar()})
             if url.path == "/api/voz":
-                texto = query.get("texto", [""])[0][:2000]
+                texto = speaker.preparar_para_fala(query.get("texto", [""])[0][:3000], limite=3000)
                 try:
-                    audio = _sintetizar(texto)
-                except Exception:
-                    return self.send_error(HTTPStatus.SERVICE_UNAVAILABLE)
+                    audio = speaker.sintetizar(texto)
+                except Exception as e:
+                    return self._json({"erro": f"{type(e).__name__}: {e}"}, 503)
                 self.send_response(200)
                 self.send_header("Content-Type", "audio/mpeg")
                 self.send_header("Content-Length", str(len(audio)))
@@ -226,6 +230,17 @@ def criar_servidor(porta: int = 8765) -> tuple[ThreadingHTTPServer, str]:
             if url.path == "/api/confirmar":
                 ok = estado.responder_confirmacao(str(dados.get("id")), bool(dados.get("aprovado")))
                 return self._json({"ok": ok})
+            if url.path == "/api/parar":
+                cerebro.parar()
+                return self._json({"ok": True})
+            if url.path == "/api/preferencias":
+                try:
+                    return self._json(preferencias.salvar(dados))
+                except (ValueError, TypeError) as e:
+                    return self._json({"erro": str(e)}, 400)
+            if url.path == "/api/tarefas/concluir":
+                t = tarefas.concluir_tarefa(str(dados.get("id", "")), bool(dados.get("feita", True)))
+                return self._json({"ok": bool(t)})
             if url.path == "/api/nova-conversa":
                 if estado.ocupado:
                     return self._json({"erro": "Espere eu terminar o pedido atual."}, 409)

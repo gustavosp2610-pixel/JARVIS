@@ -26,7 +26,13 @@ class Config:
     cidade: str = field(default_factory=lambda: os.getenv("JARVIS_CIDADE", ""))
     palavra_ativacao: str = field(default_factory=lambda: os.getenv("JARVIS_PALAVRA_ATIVACAO", "jarvis"))
     voz: str = field(default_factory=lambda: os.getenv("JARVIS_VOZ", "pt-BR-AntonioNeural"))
+    voz_velocidade: int = field(default_factory=lambda: int(os.getenv("JARVIS_VOZ_VELOCIDADE", "6")))
+    voz_tom: int = field(default_factory=lambda: int(os.getenv("JARVIS_VOZ_TOM", "-3")))
     idioma: str = field(default_factory=lambda: os.getenv("JARVIS_IDIOMA", "pt-BR"))
+    controle_pc: bool = field(default_factory=lambda: _bool(os.getenv("JARVIS_CONTROLE_PC"), True))
+    whatsapp_enviar_sozinho: bool = field(
+        default_factory=lambda: _bool(os.getenv("JARVIS_WHATSAPP_ENVIAR_SOZINHO"), True)
+    )
     pesquisa_web: bool = field(default_factory=lambda: _bool(os.getenv("JARVIS_PESQUISA_WEB"), True))
     pasta_dados: Path = field(default_factory=lambda: Path(os.getenv("JARVIS_PASTA_DADOS", str(RAIZ / "dados"))))
 

@@ -12,12 +12,11 @@ import re
 import shutil
 import subprocess
 import sys
-import threading
 import time
 import urllib.parse
 import urllib.request
 import webbrowser
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Callable
 
@@ -529,16 +528,16 @@ def apagar_arquivo(caminho: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Timers / lembretes (avisam por voz quando terminam)
+# Timers (viram lembretes persistentes; ver jarvis/tarefas.py)
 # ---------------------------------------------------------------------------
 
-# main.py troca isto por uma função que fala o aviso em voz alta.
+# main.py / web/server.py trocam isto por uma função que fala o aviso em voz alta.
 avisar: Callable[[str], None] = lambda texto: print(f"\n⏰ {texto}")
 
 
 @ferramenta(
     "criar_timer",
-    "Cria um timer/lembrete que avisa em voz alta depois de X minutos (funciona enquanto o JARVIS estiver aberto).",
+    "Cria um timer: avisa em voz alta daqui a X minutos.",
     {
         "minutos": {"type": "number"},
         "mensagem": {"type": "string", "description": "O que dizer quando o tempo acabar."},
@@ -546,7 +545,8 @@ avisar: Callable[[str], None] = lambda texto: print(f"\n⏰ {texto}")
     ["minutos", "mensagem"],
 )
 def criar_timer(minutos: float, mensagem: str) -> str:
-    t = threading.Timer(max(0.0, float(minutos)) * 60, lambda: avisar(mensagem))
-    t.daemon = True
-    t.start()
-    return f"Timer de {minutos:g} minuto(s) criado."
+    from jarvis.tarefas import tarefas
+
+    quando = datetime.now().astimezone() + timedelta(minutes=max(0.0, float(minutos)))
+    tarefas.criar_lembrete(mensagem, quando.isoformat())
+    return f"Timer de {float(minutos):g} minuto(s) criado; aviso às {quando:%H:%M}."

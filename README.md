@@ -29,12 +29,17 @@ Você:   "Pode."
 | Internet | "qual a previsão do tempo?", "quais as notícias de hoje?", "quanto tá o dólar?" |
 | Qualquer pergunta | "como funciona um buraco negro?", "me explica juros compostos", "escreve um código em Python que…", "me ajuda a estudar para a prova de história" |
 | Memória | "lembra que minha academia é às 7h", "o que você lembra sobre mim?", "esquece isso da academia" |
-| Timers | "me lembra de tirar o bolo do forno em 40 minutos" |
+| Tarefas e lembretes | "coloca pagar a luz na minha lista", "me lembra de tirar o bolo em 40 minutos", "todo dia às 7h me lembra da academia", "o que tenho pendente?" |
+| Ver a tela | "o que é isso na minha tela?", "me ajuda com esse erro que apareceu" |
+| Mouse e teclado | "abre o bloco de notas e escreve um poema", "entra no YouTube e coloca o último vídeo do canal X" (ele pede autorização uma vez e faz tudo sozinho) |
+| WhatsApp | "salva o número do João: 11 98765-4321", "manda no WhatsApp pro João que chego em 10 minutos" |
 | Avançado | "roda um comando do PowerShell que mostre meu IP" |
 
 ### Segurança
 
-- Ações que mudam ou apagam algo (**enviar e-mail, criar evento, apagar/mover/escrever arquivo, fechar programa, desligar o PC, rodar comando**) só acontecem depois que você diz **"sim"**.
+- Ações que mudam ou apagam algo (**enviar e-mail ou WhatsApp, criar evento, apagar/mover/escrever arquivo, fechar programa, desligar o PC, rodar comando**) só acontecem depois que você diz **"sim"**.
+- Para usar **mouse e teclado**, ele pede autorização **uma vez por pedido** e depois trabalha sozinho até terminar. Para interromper a qualquer momento: botão **Parar** na tela, ou jogue o mouse no **canto superior esquerdo** da tela.
+- Ele só fala quando você chama. A única exceção são os lembretes que você mesmo pediu.
 - Arquivos apagados vão para a **Lixeira**, então dá para recuperar.
 - O acesso a arquivos fica restrito à sua pasta de usuário (`C:\Users\voce`). Se quiser liberar outras pastas, use `JARVIS_PASTAS_PERMITIDAS` no `.env`.
 - Ele não segue instruções escritas dentro de e-mails, arquivos ou páginas da web.
@@ -94,6 +99,17 @@ python -m jarvis --texto --falar   # digita e ele responde falando
    python -m jarvis --google
    ```
    O navegador vai abrir para você fazer login e autorizar. Pronto, o JARVIS já pode ler e enviar e-mails e mexer na sua agenda.
+
+## A voz
+
+O JARVIS usa vozes neurais da Microsoft (as mesmas do Edge), de graça. Clique em **Voz** na tela para escolher a voz e ajustar velocidade e tom. Depois clique em **Testar e salvar**. As vozes "Multilíngue" (ex.: Brian, Andrew) falam português com um leve sotaque estrangeiro, bem estilo filme.
+
+Se a voz sair robótica, a voz neural falhou e ele usou a voz reserva. A tela avisa o motivo. Para diagnosticar:
+
+```powershell
+python -m jarvis --testar-voz
+pip install -U edge-tts pygame   # resolve a maioria dos casos
+```
 
 ## Personalizando
 

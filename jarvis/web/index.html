@@ -217,6 +217,17 @@ button, input { font: inherit; color: inherit; }
 .registro li.ok span:last-child { color: var(--ok); }
 .registro li.nao span:last-child { color: var(--hot); }
 
+/* tasks + reminders */
+.lista.tarefas li { grid-template-columns: 22px 1fr; align-items: start; }
+.lista.lembretes li { grid-template-columns: 78px 1fr; }
+.lista.tarefas li.vazia, .lista.lembretes li.vazia { grid-template-columns: 1fr; }
+.check { width: 18px; height: 18px; margin-top: 2px; padding: 0; display: grid; place-items: center; border: 1px solid var(--arc); background: transparent; cursor: pointer; }
+.check[aria-checked="true"] { background: var(--arc); box-shadow: 0 0 8px var(--arc); }
+.check[aria-checked="true"]::after { content: "✓"; color: var(--void); font: 700 12px/1 var(--f-body); }
+.lista.tarefas li.feita .tit { text-decoration: line-through; color: var(--ink-dim); }
+.subtitulo { margin: 14px 0 8px; font: 600 9.5px/1 var(--f-display); letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-dim); }
+.passos .nota { flex-basis: 100%; font: italic 400 13.5px/1.45 var(--f-body); color: var(--ink-dim); }
+
 /* ---------- centre ---------- */
 .nucleo { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .palco { position: relative; width: min(100%, 460px); aspect-ratio: 1; margin: 0 auto; max-width: 100%; }
@@ -292,6 +303,8 @@ body[data-modo="ouvindo"] .estado .t { color: var(--ok); text-shadow: 0 0 12px v
 }
 .ctl:hover { color: var(--ink); border-color: var(--arc-deep); }
 .ctl[aria-pressed="true"] { color: var(--void); background: var(--arc); border-color: var(--arc); }
+.ctl.parar { color: var(--hot); border-color: var(--hot); background: rgba(255, 61, 90, 0.1); }
+.ctl.parar:hover { color: var(--ink); background: rgba(255, 61, 90, 0.3); }
 .ticker { margin-top: 10px; overflow: hidden; border-top: 1px solid var(--line); padding-top: 7px; mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); }
 .ticker div { display: inline-flex; gap: 34px; white-space: nowrap; animation: correr 38s linear infinite; font: 400 11.5px/1 var(--f-data); color: var(--ink-dim); letter-spacing: 0.06em; }
 .ticker b { color: var(--arc); font-weight: 400; }
@@ -314,6 +327,16 @@ body[data-modo="ouvindo"] .estado .t { color: var(--ok); text-shadow: 0 0 12px v
 .autorizacao .sim { background: var(--gold); border: 1px solid var(--gold); color: var(--void); box-shadow: 0 0 18px rgba(255, 184, 64, 0.5); }
 .autorizacao .nao { background: transparent; border: 1px solid var(--line); color: var(--ink); }
 .autorizacao .dica { margin: 12px 0 0; font-size: 12.5px; color: var(--ink-dim); }
+
+.autorizacao.config .caixa { border-color: var(--arc); background: var(--plate-solid); box-shadow: 0 0 50px rgba(95, 227, 255, 0.25), inset 0 0 30px rgba(95, 227, 255, 0.06); }
+.autorizacao.config h3 { color: var(--arc); }
+.autorizacao.config h3::before { content: "◈"; animation: none; }
+.autorizacao.config .sim { background: var(--arc); border-color: var(--arc); box-shadow: 0 0 18px rgba(95, 227, 255, 0.45); }
+.campo { display: flex; flex-direction: column; gap: 6px; margin-top: 16px; }
+.campo label { display: flex; justify-content: space-between; font: 600 10.5px/1 var(--f-display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-dim); }
+.campo output { font: 400 12px/1 var(--f-data); color: var(--arc-hi); letter-spacing: 0; text-transform: none; }
+.campo select { width: 100%; padding: 10px; background: var(--void-2); color: var(--ink); border: 1px solid var(--line); font: 400 14px/1.2 var(--f-data); }
+.campo input[type="range"] { width: 100%; accent-color: var(--arc); }
 
 .toast {
   position: fixed; left: 50%; bottom: calc(120px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 36;
@@ -378,6 +401,7 @@ body[data-modo="ouvindo"] .estado .t { color: var(--ok); text-shadow: 0 0 12px v
         <span class="chip" id="chip-pc"><i></i>Computador</span>
         <span class="chip" id="chip-google"><i></i>Google</span>
         <span class="chip" id="chip-mic"><i></i>Microfone</span>
+        <span class="chip" id="chip-voz"><i></i>Voz neural</span>
       </div>
       <div class="relogio">
         <div class="hora" id="hora">--:--:--</div>
@@ -401,6 +425,12 @@ body[data-modo="ouvindo"] .estado .t { color: var(--ok); text-shadow: 0 0 12px v
           <canvas id="cpu-hist"></canvas>
         </div>
         <p class="sis-nome" id="sis-nome"></p>
+      </div>
+      <div class="painel">
+        <h2>Tarefas e lembretes <span class="tag" id="tarefas-tag"></span></h2>
+        <ul class="lista tarefas" id="tarefas"></ul>
+        <div class="subtitulo">Próximos lembretes</div>
+        <ul class="lista lembretes" id="lembretes"></ul>
       </div>
       <div class="painel">
         <h2>Memória <span class="tag">o que ele sabe sobre você</span></h2>
@@ -446,8 +476,10 @@ body[data-modo="ouvindo"] .estado .t { color: var(--ok); text-shadow: 0 0 12px v
         <button type="submit">Executar</button>
       </form>
       <div class="controles">
+        <button class="ctl parar" id="parar" hidden>Parar</button>
         <button class="ctl" id="sempre" aria-pressed="false" title="Fica ouvindo e responde quando você diz “Jarvis”">Sempre ouvindo</button>
         <button class="ctl" id="mudo" aria-pressed="false">Sem voz</button>
+        <button class="ctl" id="btn-voz">Voz</button>
         <button class="ctl" id="nova">Nova conversa</button>
       </div>
     </div>
@@ -465,6 +497,19 @@ body[data-modo="ouvindo"] .estado .t { color: var(--ok); text-shadow: 0 0 12px v
       <button class="nao" id="aut-nao">Negar</button>
     </div>
     <p class="dica">Você também pode responder por voz: “sim” ou “não”.</p>
+  </div>
+</div>
+<div class="autorizacao config" id="cfg-voz" hidden role="dialog" aria-modal="true" aria-labelledby="cfg-titulo">
+  <div class="caixa">
+    <h3 id="cfg-titulo">Voz do JARVIS</h3>
+    <div class="campo"><label for="cfg-sel">Voz</label><select id="cfg-sel"></select></div>
+    <div class="campo"><label for="cfg-vel">Velocidade <output id="cfg-vel-v"></output></label><input type="range" id="cfg-vel" min="-30" max="30" step="1"></div>
+    <div class="campo"><label for="cfg-tom">Tom <output id="cfg-tom-v"></output></label><input type="range" id="cfg-tom" min="-20" max="20" step="1"></div>
+    <p class="dica" id="cfg-status">As vozes “Multilíngue” falam português com um leve sotaque estrangeiro, bem estilo JARVIS.</p>
+    <div class="botoes">
+      <button class="sim" id="cfg-testar">Testar e salvar</button>
+      <button class="nao" id="cfg-fechar">Fechar</button>
+    </div>
   </div>
 </div>
 <div class="toast" id="toast" hidden></div>
@@ -516,7 +561,8 @@ body[data-modo="ouvindo"] .estado .t { color: var(--ok); text-shadow: 0 0 12px v
       ["Canal", DEMO ? "pré-visualização" : "127.0.0.1 · privado"],
       ["Comandos", stats.comandos],
       ["Ações", stats.acoes],
-      ["Voz", SR ? "pt-BR" : "indisponível"],
+      ["Voz", DEMO ? "navegador" : (vozServidor?.voz || "neural").replace(/^[a-z]{2}-[A-Z]{2}-/, "").replace("Neural", "")],
+      ["Reconhecimento", SR ? "pt-BR" : "indisponível"],
       ["Protocolo", "autorização para ações sensíveis"],
     ];
     const linha = itens.map(([k, v]) => `<span>${k} <b>${String(v).replace(/</g, "&lt;")}</b></span>`).join("");
@@ -539,6 +585,7 @@ body[data-modo="ouvindo"] .estado .t { color: var(--ok); text-shadow: 0 0 12px v
     if (m === "ocioso" && sempreOuvindo) detalhe = "Diga “Jarvis” seguido do pedido";
     $("#estado").textContent = t;
     $("#estado-sub").textContent = detalhe;
+    $("#parar").hidden = !(m === "pensando" || m === "falando");
   }
   function toast(msg, ms = 4500) {
     const t = $("#toast"); t.textContent = msg; t.hidden = false;
@@ -584,7 +631,7 @@ body[data-modo="ouvindo"] .estado .t { color: var(--ok); text-shadow: 0 0 12px v
     conversa.scrollTop = conversa.scrollHeight;
     return d;
   }
-  function addPasso(nome) {
+  function containerPassos() {
     if (!passosAtuais) {
       const d = document.createElement("div");
       d.className = "msg jarvis";
@@ -592,6 +639,16 @@ body[data-modo="ouvindo"] .estado .t { color: var(--ok); text-shadow: 0 0 12px v
       conversa.append(d);
       passosAtuais = d.querySelector(".passos");
     }
+    return passosAtuais;
+  }
+  function addNota(texto) {
+    containerPassos().append(txt("div", "nota", texto));
+    conversa.scrollTop = conversa.scrollHeight;
+    $("#estado-sub").textContent = texto.length > 90 ? texto.slice(0, 88) + "…" : texto;
+    registrar(texto);
+  }
+  function addPasso(nome) {
+    containerPassos();
     const s = document.createElement("span");
     s.className = "passo"; s.textContent = "↳ " + nome.replaceAll("_", " ");
     passosAtuais.append(s);
@@ -690,6 +747,9 @@ body[data-modo="ouvindo"] .estado .t { color: var(--ok); text-shadow: 0 0 12px v
     $("#sis-nome").textContent = s.sistema ? "// " + s.sistema : "";
     $("#sis-atualizado").textContent = "sinc " + hhmmss().slice(0, 5);
 
+    desenharTarefas(p.tarefas || [], p.lembretes || []);
+    if (p.voz) vozServidor = p.voz;
+
     lista($("#memorias"), p.memorias, (li, f) => li.append(txt("span", "", f)),
       "Nada ainda. Diga “Jarvis, lembra que…” para ensinar algo.");
 
@@ -716,6 +776,47 @@ body[data-modo="ouvindo"] .estado .t { color: var(--ok); text-shadow: 0 0 12px v
     }, "Caixa de entrada em dia.");
   }
 
+  const SEMANA = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+  function quandoCurto(iso) {
+    const d = new Date(iso);
+    if (isNaN(d)) return iso;
+    const hm = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    const dias = Math.round((new Date(d).setHours(0, 0, 0, 0) - hoje) / 864e5);
+    return dias === 0 ? hm : dias === 1 ? "amanhã " + hm : `${SEMANA[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1} ${hm}`;
+  }
+  const REPETE = { diario: "todo dia", dias_uteis: "dias úteis", semanal: "toda semana" };
+  function desenharTarefas(tarefasLista, lembretesLista) {
+    $("#tarefas-tag").innerHTML = DEMO ? '<span class="exemplo">EXEMPLO</span>' : tarefasLista.length ? `${tarefasLista.filter((t) => !t.feita).length} pendentes` : "";
+    lista($("#tarefas"), tarefasLista, (li, t) => {
+      if (t.feita) li.classList.add("feita");
+      const b = document.createElement("button");
+      b.className = "check"; b.setAttribute("role", "checkbox");
+      b.setAttribute("aria-checked", String(!!t.feita));
+      b.setAttribute("aria-label", "Concluir: " + t.titulo);
+      b.addEventListener("click", () => concluirTarefa(t, b, li));
+      const d = document.createElement("div");
+      d.append(txt("div", "tit", t.titulo));
+      if (t.prazo) d.append(txt("div", "sub", "prazo: " + quandoCurto(t.prazo)));
+      li.append(b, d);
+    }, "Nenhuma tarefa. Diga “Jarvis, coloca … na minha lista”.");
+    lista($("#lembretes"), lembretesLista, (li, l) => {
+      li.append(txt("span", "quando", quandoCurto(l.quando)));
+      const d = document.createElement("div");
+      d.append(txt("div", "tit", l.mensagem));
+      if (REPETE[l.repetir]) d.append(txt("div", "sub", REPETE[l.repetir]));
+      li.append(d);
+    }, "Nenhum lembrete. Diga “Jarvis, me lembra de … às 18h”.");
+  }
+  async function concluirTarefa(t, botao, li) {
+    const feita = botao.getAttribute("aria-checked") !== "true";
+    botao.setAttribute("aria-checked", String(feita));
+    li.classList.toggle("feita", feita);
+    registrar((feita ? "tarefa concluída: " : "tarefa reaberta: ") + t.titulo, feita ? "ok" : "");
+    if (DEMO) { const x = demoTarefas.find((d) => d.id === t.id); if (x) x.feita = feita; return; }
+    try { await api("/api/tarefas/concluir", { id: t.id, feita }); } catch { toast("Não consegui atualizar a tarefa."); }
+  }
+
   async function atualizarPainel() {
     if (DEMO) return desenharPainel(DEMO_PAINEL());
     try {
@@ -740,36 +841,84 @@ body[data-modo="ouvindo"] .estado .t { color: var(--ok); text-shadow: 0 0 12px v
       fonte.connect(analisador); analisador.connect(audioCtx.destination);
     } catch { audioCtx = null; analisador = null; }
   }
+  // Preferências da voz do navegador (usadas só na pré-visualização ou se a voz neural falhar).
+  let vozNav = pref.get("vozNav", { nome: "", vel: 0, tom: 0 });
   function vozNavegador(texto) {
     return new Promise((ok) => {
       if (!("speechSynthesis" in window)) return ok();
       const u = new SpeechSynthesisUtterance(texto);
       u.lang = "pt-BR";
       const vozes = speechSynthesis.getVoices();
-      u.voice = vozes.find((v) => /pt-BR/i.test(v.lang) && /Antonio|Natural|Online/i.test(v.name))
-        || vozes.find((v) => /pt-BR/i.test(v.lang)) || null;
-      u.rate = 1.03;
+      u.voice = vozes.find((v) => v.name === vozNav.nome)
+        || vozes.find((v) => /pt-BR/i.test(v.lang) && /Natural|Online|Neural/i.test(v.name))
+        || vozes.find((v) => /pt-BR/i.test(v.lang) && /Google/i.test(v.name))
+        || vozes.find((v) => /^pt/i.test(v.lang)) || null;
+      u.rate = 1 + (vozNav.vel || 0) / 100;
+      u.pitch = 1 + (vozNav.tom || 0) / 40;
       u.onend = u.onerror = () => ok();
       speechSynthesis.cancel(); speechSynthesis.speak(u);
     });
   }
+  function frasesDe(texto) {
+    const partes = texto.split(/(?<=[.!?…;:])\s+/).map((p) => p.trim()).filter(Boolean);
+    const frases = [];
+    for (const p of partes) {
+      if (frases.length && frases[frases.length - 1].length < 40) frases[frases.length - 1] += " " + p;
+      else frases.push(p);
+    }
+    return frases;
+  }
+  async function baixarVoz(frase) {
+    const r = await fetch(`/api/voz?t=${encodeURIComponent(TOKEN)}&texto=${encodeURIComponent(frase)}`);
+    if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.erro || "HTTP " + r.status); }
+    return URL.createObjectURL(await r.blob());
+  }
+  let vozNeuralOk = null, cancelarFala = false;
+  function marcarVoz(ok, erro) {
+    chip("voz", ok ? "on" : "warn");
+    if (!ok && vozNeuralOk !== false) {
+      registrar("voz neural indisponível", "nao");
+      const curto = String(erro || "").split(/[[(]/)[0].trim().slice(0, 90);
+      toast(`A voz neural falhou (${curto || "sem resposta"}). Usei a voz do navegador. Rode “python -m jarvis --testar-voz” para ver o motivo.`, 9000);
+    }
+    vozNeuralOk = ok;
+  }
+  // Fala frase por frase: enquanto uma toca, a próxima já está sendo gerada.
   async function falar(texto) {
     if (mudo || !texto) return;
-    falando = true; pausarEscuta();
+    falando = true; cancelarFala = false; pausarEscuta();
     setModo("falando");
-    try {
-      if (DEMO) throw new Error("demo");
-      audio.src = `/api/voz?t=${encodeURIComponent(TOKEN)}&texto=${encodeURIComponent(texto)}`;
-      if (audioCtx?.state === "suspended") await audioCtx.resume();
-      await audio.play();
-      await new Promise((ok) => { audio.onended = audio.onerror = audio.onpause = () => ok(); });
-    } catch {
-      await vozNavegador(texto);
+    const frases = frasesDe(texto);
+    let feitas = 0;
+    if (!DEMO) {
+      try {
+        let proxima = baixarVoz(frases[0]);
+        proxima.catch(() => {});
+        for (let i = 0; i < frases.length && !cancelarFala; i++) {
+          const url = await proxima;
+          if (i + 1 < frases.length) { proxima = baixarVoz(frases[i + 1]); proxima.catch(() => {}); }
+          audio.src = url;
+          if (audioCtx?.state === "suspended") await audioCtx.resume();
+          await audio.play();
+          await new Promise((ok) => { audio.onended = audio.onerror = audio.onpause = () => ok(); });
+          URL.revokeObjectURL(url);
+          feitas = i + 1;
+        }
+        marcarVoz(true);
+      } catch (e) {
+        marcarVoz(false, e.message);
+      }
     }
+    if (!cancelarFala && feitas < frases.length) await vozNavegador(frases.slice(feitas).join(" "));
     falando = false;
     janelaConversaAte = Date.now() + 7000;
     setModo("ocioso");
     retomarEscuta();
+  }
+  function calarse() {
+    cancelarFala = true;
+    audio.pause();
+    window.speechSynthesis?.cancel();
   }
 
   // ------------------------------------------------------------------ voice in
@@ -897,6 +1046,8 @@ body[data-modo="ouvindo"] .estado .t { color: var(--ok); text-shadow: 0 0 12px v
   let pendente = null;
   function tratarEvento(ev) {
     if (ev.tipo === "ferramenta") addPasso(ev.nome);
+    else if (ev.tipo === "acao_pc") addPasso(ev.texto);
+    else if (ev.tipo === "progresso") addNota(ev.texto);
     else if (ev.tipo === "resposta") concluirResposta(ev.texto); else if (ev.tipo === "aviso") {
       addMsg("aviso", ev.texto);
       registrar("lembrete: " + ev.texto, "aut");
@@ -981,9 +1132,78 @@ body[data-modo="ouvindo"] .estado .t { color: var(--ok); text-shadow: 0 0 12px v
     if (mudo) { audio.pause(); window.speechSynthesis?.cancel(); }
   });
   $("#nova").addEventListener("click", novaConversa);
+  $("#parar").addEventListener("click", async () => {
+    calarse();
+    registrar("parada solicitada", "nao");
+    if (DEMO) { ctlIA?.abort(); setModo("ocioso"); return; }
+    if (modo === "pensando") { try { await api("/api/parar", {}); } catch {} }
+    else setModo("ocioso");
+  });
+
+  // Voice settings dialog
+  let vozServidor = null;
+  const cfg = { sel: $("#cfg-sel"), vel: $("#cfg-vel"), tom: $("#cfg-tom"), status: $("#cfg-status") };
+  function mostrarValores() {
+    $("#cfg-vel-v").textContent = (cfg.vel.value > 0 ? "+" : "") + cfg.vel.value + "%";
+    $("#cfg-tom-v").textContent = (cfg.tom.value > 0 ? "+" : "") + cfg.tom.value + (DEMO ? "" : " Hz");
+  }
+  cfg.vel.addEventListener("input", mostrarValores);
+  cfg.tom.addEventListener("input", mostrarValores);
+  function opcao(valor, rotulo) { const o = document.createElement("option"); o.value = valor; o.textContent = rotulo; return o; }
+  async function abrirConfigVoz() {
+    $("#cfg-voz").hidden = false;
+    cfg.sel.replaceChildren(opcao("", "Carregando vozes…"));
+    if (DEMO) {
+      const vozes = (window.speechSynthesis?.getVoices() || []).filter((v) => /^pt/i.test(v.lang));
+      cfg.sel.replaceChildren(opcao("", "Automática (a melhor disponível)"), ...vozes.map((v) => opcao(v.name, `${v.name} · ${v.lang}`)));
+      cfg.sel.value = vozNav.nome; cfg.vel.value = vozNav.vel; cfg.tom.value = vozNav.tom;
+      cfg.status.textContent = "Na versão online a voz é a do seu navegador. No Edge, as vozes “Natural” são as melhores. No PC instalado você escolhe entre vozes neurais.";
+      return mostrarValores();
+    }
+    try {
+      const r = await api("/api/vozes");
+      const grupos = {};
+      for (const v of r.vozes) (grupos[v.idioma.startsWith("pt") ? "Português" : "Multilíngues (falam português com sotaque)"] ||= []).push(v);
+      cfg.sel.replaceChildren(...Object.entries(grupos).map(([nome, vs]) => {
+        const g = document.createElement("optgroup"); g.label = nome;
+        g.append(...vs.map((v) => opcao(v.id, `${v.nome} · ${v.genero} · ${v.idioma}`)));
+        return g;
+      }));
+      cfg.sel.value = r.atual.voz; cfg.vel.value = r.atual.velocidade; cfg.tom.value = r.atual.tom;
+    } catch (e) {
+      const atual = vozServidor || { voz: "pt-BR-AntonioNeural", velocidade: 6, tom: -3 };
+      cfg.sel.replaceChildren(opcao(atual.voz, atual.voz));
+      cfg.vel.value = atual.velocidade; cfg.tom.value = atual.tom;
+      cfg.status.textContent = "Não consegui baixar a lista de vozes (" + e.message + "). Verifique a internet.";
+    }
+    mostrarValores();
+  }
+  async function salvarConfigVoz() {
+    if (DEMO) {
+      vozNav = { nome: cfg.sel.value, vel: +cfg.vel.value, tom: +cfg.tom.value };
+      pref.set("vozNav", vozNav);
+      return;
+    }
+    vozServidor = await api("/api/preferencias", { voz: cfg.sel.value, velocidade: +cfg.vel.value, tom: +cfg.tom.value });
+    atualizarTicker();
+  }
+  $("#btn-voz").addEventListener("click", abrirConfigVoz);
+  $("#cfg-fechar").addEventListener("click", () => ($("#cfg-voz").hidden = true));
+  $("#cfg-testar").addEventListener("click", async () => {
+    prepararAudio();
+    try { await salvarConfigVoz(); } catch (e) { cfg.status.textContent = "Não consegui salvar: " + e.message; return; }
+    cfg.status.textContent = "Salvo. Ouça:";
+    const eraMudo = mudo; mudo = false;
+    await falar("Olá, senhor. Esta é a minha nova voz. Todos os sistemas estão operando normalmente.");
+    mudo = eraMudo;
+  });
   $("#aut-sim").addEventListener("click", () => decidir(true));
   $("#aut-nao").addEventListener("click", () => decidir(false));
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && pendente) decidir(false); });
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    if (pendente) decidir(false);
+    else if (!$("#cfg-voz").hidden) $("#cfg-voz").hidden = true;
+  });
 
   // ------------------------------------------------------------------ background field
   const fundo = $("#fundo"), fg = fundo.getContext("2d");
@@ -1202,6 +1422,11 @@ body[data-modo="ouvindo"] .estado .t { color: var(--ok); text-shadow: 0 0 12px v
   }
 
   // ------------------------------------------------------------------ demo (preview without the PC)
+  const demoTarefas = [
+    { id: "t1", titulo: "Pagar a fatura do cartão", prazo: new Date(Date.now() + 864e5).toISOString(), feita: false },
+    { id: "t2", titulo: "Comprar ração do cachorro", prazo: null, feita: false },
+    { id: "t3", titulo: "Revisar a proposta do Carlos", prazo: null, feita: true },
+  ];
   function DEMO_PAINEL() {
     const hoje = new Date(); const iso = (h, m) => { const d = new Date(hoje); d.setHours(h, m, 0, 0); return d.toISOString(); };
     const base = histCpu.length ? histCpu[histCpu.length - 1] : 22;
@@ -1209,6 +1434,11 @@ body[data-modo="ouvindo"] .estado .t { color: var(--ok); text-shadow: 0 0 12px v
       modelo: "claude-opus-5-5",
       sistema: { sistema: "Windows 11 · dados de exemplo", cpu_percent: Math.max(4, Math.min(88, base + (Math.random() - 0.45) * 18)), ram_percent: 57, disco_livre_gb: 212.4, disco_total_gb: 476, bateria_percent: 81, carregando: false },
       memorias: ["Academia às 7h, de segunda a sexta (exemplo)", "Prefere café sem açúcar (exemplo)"],
+      tarefas: demoTarefas,
+      lembretes: [
+        { mensagem: "Tirar o bolo do forno", quando: new Date(Date.now() + 25 * 6e4).toISOString(), repetir: "nunca" },
+        { mensagem: "Beber água", quando: (() => { const d = new Date(); d.setHours(d.getHours() + 2, 0, 0, 0); return d.toISOString(); })(), repetir: "diario" },
+      ],
       google: {
         conectado: true,
         agenda: [

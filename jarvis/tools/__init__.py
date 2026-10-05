@@ -92,5 +92,5 @@ def executar(nome: str, entrada: dict[str, Any]) -> str:
 
 def carregar_todas() -> None:
     """Importa os módulos de ferramentas para que se registrem."""
-    from jarvis import memory  # noqa: F401
-    from jarvis.tools import computer, google  # noqa: F401
+    from jarvis import memory, tarefas  # noqa: F401
+    from jarvis.tools import computer, google, whatsapp  # noqa: F401

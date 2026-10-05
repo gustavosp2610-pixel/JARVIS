@@ -80,7 +80,7 @@ def test_resposta_simples():
     assert c.responder("bom dia") == "Bom dia, senhor."
     chamada = cliente.chamadas[0]
     assert chamada["model"] == "claude-opus-5-5"
-    assert chamada["thinking"] == {"type": "adaptive"}
+    assert chamada["thinking"]["type"] == "adaptive"
     assert "[Agora:" in chamada["messages"][0]["content"]
 
 
@@ -183,8 +183,11 @@ def test_servidor_web_exige_token_e_host(monkeypatch):
     from jarvis.web import server
 
     class CerebroFalso:
-        def __init__(self, confirmar, ao_usar_ferramenta=None):
+        def __init__(self, confirmar, **callbacks):
             self.confirmar = confirmar
+
+        def parar(self):
+            pass
 
         def responder(self, texto):
             return "eco: " + texto if not self.confirmar("teste(x=1)") else "autorizado"
@@ -193,7 +196,7 @@ def test_servidor_web_exige_token_e_host(monkeypatch):
             pass
 
     monkeypatch.setattr("jarvis.brain.Cerebro", CerebroFalso)
-    srv, token = server.criar_servidor(porta=0)
+    srv, token = server.criar_servidor(porta=0, agendar=False)
     porta = srv.server_address[1]
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     base = f"http://127.0.0.1:{porta}"

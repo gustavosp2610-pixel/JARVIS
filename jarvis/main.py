@@ -43,8 +43,18 @@ def _checar_chave() -> None:
 # ---------------------------------------------------------------------------
 
 
+def _mostradores() -> dict:
+    """Mostra no terminal o que o JARVIS está fazendo."""
+    return {
+        "ao_usar_ferramenta": lambda n: console.print(f"[dim]  ↳ {n}[/dim]"),
+        "ao_progresso": lambda t: console.print(f"[dim cyan]  … {t}[/dim cyan]"),
+        "ao_acao_pc": lambda t: console.print(f"[dim]  🖱 {t}[/dim]"),
+    }
+
+
 def modo_texto(com_voz: bool) -> None:
     from jarvis.brain import Cerebro
+    from jarvis.tarefas import Agendador
     from jarvis.tools import computer
 
     falar = None
@@ -61,7 +71,8 @@ def modo_texto(com_voz: bool) -> None:
             falar(texto)
 
     computer.avisar = aviso
-    cerebro = Cerebro(confirmar, ao_usar_ferramenta=lambda n: console.print(f"[dim]  ↳ {n}[/dim]"))
+    Agendador(aviso).start()
+    cerebro = Cerebro(confirmar, **_mostradores())
     console.print("[bold cyan]J.A.R.V.I.S. online.[/bold cyan] Digite 'sair' para encerrar.\n")
     while True:
         try:
@@ -91,6 +102,7 @@ def modo_texto(com_voz: bool) -> None:
 
 def modo_voz() -> None:
     from jarvis.brain import Cerebro
+    from jarvis.tarefas import Agendador
     from jarvis.tools import computer
     from jarvis.voice.listener import Ouvinte, extrair_comando
     from jarvis.voice.speaker import falar
@@ -113,7 +125,8 @@ def modo_voz() -> None:
         return _eh_sim(resposta)
 
     computer.avisar = dizer
-    cerebro = Cerebro(confirmar, ao_usar_ferramenta=lambda n: console.print(f"[dim]  ↳ {n}[/dim]"))
+    Agendador(dizer).start()
+    cerebro = Cerebro(confirmar, **_mostradores())
     dizer(f"Sistemas online. Às suas ordens, {config.nome_usuario}.")
     console.print(f"[dim]Diga \"{config.palavra_ativacao.title()}\" seguido do pedido. Ctrl+C para sair.[/dim]")
 
@@ -162,6 +175,7 @@ def main() -> None:
     parser.add_argument("--texto", action="store_true", help="conversar digitando no terminal")
     parser.add_argument("--falar", action="store_true", help="no modo texto, também responder em voz alta")
     parser.add_argument("--google", action="store_true", help="conectar sua conta Google (Gmail/Agenda)")
+    parser.add_argument("--testar-voz", action="store_true", help="testa a voz neural e mostra o erro, se houver")
     parser.add_argument("--porta", type=int, default=8765, help="porta da tela (padrão 8765)")
     parser.add_argument("--sem-navegador", action="store_true", help="não abrir o navegador automaticamente")
     args = parser.parse_args()
@@ -171,6 +185,20 @@ def main() -> None:
 
         autorizar(interativo=True)
         console.print("[green]Conta Google conectada![/green]")
+        return
+
+    if args.testar_voz:
+        from jarvis import preferencias
+        from jarvis.voice.speaker import testar_voz
+
+        voz, rate, pitch = preferencias.prosodia()
+        console.print(f"Testando a voz [b]{voz}[/b] (velocidade {rate}, tom {pitch})...")
+        erro = testar_voz()
+        if erro:
+            console.print(f"[red]A voz neural falhou:[/red] {erro}")
+            console.print("Dicas: confira a internet e rode [b]pip install -U edge-tts pygame[/b].")
+        else:
+            console.print("[green]Voz neural funcionando![/green]")
         return
 
     _checar_chave()
