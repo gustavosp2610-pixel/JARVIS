@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import os
 import re
+import sys
 import tempfile
 import threading
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -99,20 +100,48 @@ def listar_vozes() -> list[dict]:
     return vozes
 
 
-def _tocar_mp3(audio: bytes) -> None:
+def _tocar_mci(caminho: str) -> None:
+    """Toca o MP3 com o próprio Windows (winmm/MCI), sem bibliotecas extras."""
+    import ctypes
+
+    winmm = ctypes.windll.winmm  # type: ignore[attr-defined]
+
+    def mci(comando: str) -> None:
+        erro = winmm.mciSendStringW(comando, None, 0, None)
+        if erro:
+            buf = ctypes.create_unicode_buffer(256)
+            winmm.mciGetErrorStringW(erro, buf, 256)
+            raise OSError(f"MCI {erro}: {buf.value}")
+
+    alias = f"jarvis{threading.get_ident()}"
+    mci(f'open "{caminho}" type mpegvideo alias {alias}')
+    try:
+        mci(f"play {alias} wait")
+    finally:
+        winmm.mciSendStringW(f"close {alias}", None, 0, None)
+
+
+def _tocar_pygame(caminho: str) -> None:
     import pygame
 
+    if not pygame.mixer.get_init():
+        pygame.mixer.init()
+    pygame.mixer.music.load(caminho)
+    pygame.mixer.music.play()
+    while pygame.mixer.music.get_busy():
+        pygame.time.wait(40)
+    pygame.mixer.music.unload()
+
+
+def _tocar_mp3(audio: bytes) -> None:
     fd, caminho = tempfile.mkstemp(suffix=".mp3")
     with os.fdopen(fd, "wb") as f:
         f.write(audio)
     try:
-        if not pygame.mixer.get_init():
-            pygame.mixer.init()
-        pygame.mixer.music.load(caminho)
-        pygame.mixer.music.play()
-        while pygame.mixer.music.get_busy():
-            pygame.time.wait(40)
-        pygame.mixer.music.unload()
+        if sys.platform == "win32":
+            _tocar_mci(caminho)
+        else:
+            _tocar_pygame(caminho)
     finally:
         try:
             os.remove(caminho)

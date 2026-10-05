@@ -45,9 +45,20 @@ set "VPY=%~dp0.venv\Scripts\python.exe"
 "%VPY%" -m pip install --upgrade pip --quiet
 
 echo [3/4] Instalando as bibliotecas. Pode levar alguns minutos...
-"%VPY%" -m pip install -r requirements.txt --disable-pip-version-check
+"%VPY%" -m pip install --prefer-binary -r requirements.txt --disable-pip-version-check
+if not errorlevel 1 goto opcionais
+echo.
+echo Algumas bibliotecas falharam. Instalando uma por uma e pulando as que nao funcionarem...
+set "FALHOU="
+for /f "usebackq eol=# tokens=*" %%L in ("requirements.txt") do (
+  "%VPY%" -m pip install --prefer-binary "%%L" --disable-pip-version-check --quiet || (echo   Aviso: nao consegui instalar "%%L" & set "FALHOU=1")
+)
+"%VPY%" -c "import google.genai, edge_tts, dotenv, rich" >nul 2>&1
 if errorlevel 1 goto erro_bibliotecas
-"%VPY%" -m pip install -r requirements-opcional.txt --quiet >nul 2>&1
+if defined FALHOU echo O essencial foi instalado. As funcoes das bibliotecas acima podem nao funcionar.
+
+:opcionais
+"%VPY%" -m pip install --prefer-binary -r requirements-opcional.txt --quiet >nul 2>&1
 if errorlevel 1 echo Aviso: o modo de voz pelo terminal nao foi instalado. A tela do JARVIS funciona normalmente.
 
 rem ---- 3. Configuracao -------------------------------------------------------

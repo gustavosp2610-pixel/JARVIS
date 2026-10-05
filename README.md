@@ -112,7 +112,7 @@ Se a voz sair robótica, a voz neural falhou e ele usou a voz reserva. A tela av
 
 ```powershell
 python -m jarvis --testar-voz
-pip install -U edge-tts pygame   # resolve a maioria dos casos
+pip install -U edge-tts   # resolve a maioria dos casos
 ```
 
 ## Personalizando

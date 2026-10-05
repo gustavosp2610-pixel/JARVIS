@@ -204,7 +204,7 @@ def main() -> None:
         erro = testar_voz()
         if erro:
             console.print(f"[red]A voz neural falhou:[/red] {erro}")
-            console.print("Dicas: confira a internet e rode [b]pip install -U edge-tts pygame[/b].")
+            console.print("Dicas: confira a internet e rode [b]pip install -U edge-tts[/b].")
         else:
             console.print("[green]Voz neural funcionando![/green]")
         return

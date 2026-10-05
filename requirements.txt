@@ -4,9 +4,8 @@ anthropic>=1.11
 python-dotenv>=1.0
 rich>=13.0
 
-# Voz (fala neural grátis)
+# Voz (fala neural grátis; o áudio toca pelo próprio Windows)
 edge-tts>=7.2
-pygame>=2.5
 
 # Computador
 psutil>=5.9
@@ -14,9 +13,8 @@ Pillow>=10.0
 pyperclip>=1.8
 Send2Trash>=1.8
 
-# Estudos (ler PDF e Word)
+# Estudos (ler PDF; Word é lido sem biblioteca extra)
 pypdf>=4.0
-python-docx>=1.1
 pyautogui>=0.9.54
 
 # Google (Gmail + Agenda)

@@ -23,6 +23,28 @@ def _cortar(texto: str) -> str:
     return texto
 
 
+def texto_de_docx(caminho: Path) -> str:
+    """Lê o texto de um .docx direto do XML (sem bibliotecas que precisem ser compiladas)."""
+    import zipfile
+    from xml.etree import ElementTree as ET
+
+    w = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+    with zipfile.ZipFile(caminho) as z:
+        raiz = ET.fromstring(z.read("word/document.xml"))
+    paragrafos = []
+    for par in raiz.iter(f"{w}p"):
+        partes = []
+        for no in par.iter():
+            if no.tag == f"{w}t" and no.text:
+                partes.append(no.text)
+            elif no.tag == f"{w}tab":
+                partes.append("\t")
+            elif no.tag in (f"{w}br", f"{w}cr"):
+                partes.append("\n")
+        paragrafos.append("".join(partes))
+    return "\n".join(paragrafos)
+
+
 def extrair_texto(caminho: Path) -> str:
     sufixo = caminho.suffix.lower()
     if sufixo == ".pdf":
@@ -38,10 +60,7 @@ def extrair_texto(caminho: Path) -> str:
                 break
         return "\n".join(paginas) if tem_texto else ""
     if sufixo == ".docx":
-        import docx
-
-        documento = docx.Document(str(caminho))
-        return "\n".join(p.text for p in documento.paragraphs)
+        return texto_de_docx(caminho)
     if sufixo in {".txt", ".md", ".csv", ".json", ".py", ".html", ".log"}:
         return caminho.read_text(encoding="utf-8", errors="replace")
     raise ValueError(f"Não sei ler arquivos {sufixo or 'sem extensão'}. Uso PDF, Word (.docx) e textos.")

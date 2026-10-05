@@ -91,19 +91,24 @@ def test_contexto_inclui_rotinas_na_primeira_mensagem():
 
 
 def test_ler_documento_pdf_docx_txt(tmp_path, monkeypatch):
-    import docx
+    import zipfile
+
     from pypdf import PdfWriter
 
-    d = docx.Document()
-    d.add_paragraph("Fotossíntese transforma luz em energia.")
-    d.save(tmp_path / "aula.docx")
+    xml = (
+        '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>'
+        "<w:p><w:r><w:t>Fotossíntese transforma </w:t></w:r><w:r><w:t>luz em energia.</w:t></w:r></w:p>"
+        "<w:p><w:r><w:t>Segundo parágrafo</w:t></w:r></w:p></w:body></w:document>"
+    )
+    with zipfile.ZipFile(tmp_path / "aula.docx", "w") as z:
+        z.writestr("word/document.xml", xml)
     w = PdfWriter()
     w.add_blank_page(width=200, height=200)
     with open(tmp_path / "vazio.pdf", "wb") as f:
         w.write(f)
     (tmp_path / "notas.md").write_text("# Revisão\nItem 1", encoding="utf-8")
     monkeypatch.setenv("JARVIS_PASTAS_PERMITIDAS", str(tmp_path))
-    assert "Fotossíntese" in estudos.ler_documento(str(tmp_path / "aula.docx"))
+    assert estudos.ler_documento(str(tmp_path / "aula.docx")) == "Fotossíntese transforma luz em energia.\nSegundo parágrafo"
     assert "não tem texto legível" in estudos.ler_documento(str(tmp_path / "vazio.pdf"))
     assert "Revisão" in estudos.ler_documento(str(tmp_path / "notas.md"))
     with pytest.raises(ValueError):
