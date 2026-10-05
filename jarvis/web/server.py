@@ -93,6 +93,18 @@ class Estado:
         return dados
 
 
+class _Servidor(ThreadingHTTPServer):
+    daemon_threads = True
+
+    def handle_error(self, request: Any, client_address: Any) -> None:
+        import sys
+
+        erro = sys.exc_info()[1]
+        if isinstance(erro, ConnectionError):
+            return  # o navegador fechou/recarregou a página no meio de uma resposta: normal, sem barulho
+        logging.getLogger("jarvis").exception("Erro ao atender a tela do JARVIS")
+
+
 class _LogNaTela(logging.Handler):
     """Mostra avisos e erros do JARVIS no Registro de operações do HUD."""
 
@@ -282,7 +294,7 @@ def criar_servidor(porta: int = 8765, agendar: bool = True) -> tuple[ThreadingHT
                 return self._json({"ok": True})
             self.send_error(HTTPStatus.NOT_FOUND)
 
-    servidor = ThreadingHTTPServer(("127.0.0.1", porta), Handler)
+    servidor = _Servidor(("127.0.0.1", porta), Handler)
     servidor.daemon_threads = True
     porta_real = servidor.server_address[1]
     hosts_validos.update({f"127.0.0.1:{porta_real}", f"localhost:{porta_real}"})
