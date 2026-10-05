@@ -10,19 +10,16 @@ import anthropic
 
 from jarvis import tools
 from jarvis.config import config
-from jarvis.memory import memoria
 from jarvis.personality import system_prompt
 from jarvis.tools.controle import NAO_EXECUTADO, SOMENTE_LEITURA, TOOLSET, ParadaSolicitada, controle
 
 MAX_PASSOS = 60  # limite de idas e voltas com ferramentas por pedido (tarefas no PC usam muitas)
 BETAS = ["server-side-fallback-2026-07-01", "thinking-display-updates-2026-08-18"]
 
-_DIAS = ["segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo"]
-
-
 def _agora() -> str:
-    a = datetime.now().astimezone()
-    return f"{_DIAS[a.weekday()]}, {a:%d/%m/%Y %H:%M} (fuso {a:%z})"
+    from jarvis.contexto import agora_texto
+
+    return agora_texto()
 
 
 class Cerebro:
@@ -70,12 +67,9 @@ class Cerebro:
         )
 
     def _mensagem_usuario(self, texto: str) -> dict[str, Any]:
-        contexto = f"[Agora: {_agora()}]"
-        if not self.mensagens:  # primeira mensagem da sessão leva as memórias
-            fatos = memoria.fatos()
-            if fatos:
-                contexto += "\n[O que você lembra sobre o usuário:\n" + "\n".join(f"- {f}" for f in fatos) + "]"
-        return {"role": "user", "content": f"{contexto}\n{texto}"}
+        from jarvis.contexto import contexto_usuario
+
+        return {"role": "user", "content": f"{contexto_usuario(not self.mensagens)}\n{texto}"}
 
     def _autorizar_pc(self) -> bool:
         """Uma autorização por pedido para usar mouse e teclado."""

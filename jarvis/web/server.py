@@ -8,6 +8,7 @@ abertos no seu navegador não conseguem mandar ordens para o JARVIS.
 from __future__ import annotations
 
 import json
+import logging
 import secrets
 import threading
 import time
@@ -90,11 +91,39 @@ class Estado:
         return dados
 
 
+class _LogNaTela(logging.Handler):
+    """Mostra avisos e erros do JARVIS no Registro de operações do HUD."""
+
+    def __init__(self, estado: Estado) -> None:
+        super().__init__(level=logging.WARNING)
+        self.estado = estado
+
+    def emit(self, registro: logging.LogRecord) -> None:
+        try:
+            self.estado.publicar("log", texto=registro.getMessage()[:300], nivel=registro.levelname)
+        except Exception:
+            pass
+
+
+def _ligar_log_na_tela(estado: Estado) -> None:
+    log = logging.getLogger("jarvis")
+    for h in [h for h in log.handlers if isinstance(h, _LogNaTela)]:
+        log.removeHandler(h)
+    log.addHandler(_LogNaTela(estado))
+
+
+def configurar_log() -> None:
+    """Avisos e erros aparecem na janela preta, com horário."""
+    logging.basicConfig(level=logging.WARNING, format="%(asctime)s %(levelname)s %(message)s", datefmt="%H:%M:%S")
+
+
 def criar_servidor(porta: int = 8765, agendar: bool = True) -> tuple[ThreadingHTTPServer, str]:
     from jarvis import preferencias
     from jarvis.brain import criar_cerebro
     from jarvis.memory import memoria
+    from jarvis.rotinas import rotinas
     from jarvis.tarefas import Agendador, tarefas
+    from jarvis.tools.financas import financas
     from jarvis.tools import computer
     from jarvis.voice import speaker
 
@@ -107,6 +136,7 @@ def criar_servidor(porta: int = 8765, agendar: bool = True) -> tuple[ThreadingHT
         ao_acao_pc=lambda texto: estado.publicar("acao_pc", texto=texto),
     )
     computer.avisar = lambda texto: estado.publicar("aviso", texto=texto)
+    _ligar_log_na_tela(estado)
     if agendar:
         Agendador(computer.avisar).start()
     cache_vozes: list[dict[str, Any]] = []
@@ -186,6 +216,8 @@ def criar_servidor(porta: int = 8765, agendar: bool = True) -> tuple[ThreadingHT
                         "sistema": info_sistema(),
                         "memorias": memoria.fatos(),
                         "tarefas": tarefas.tarefas(incluir_feitas=False)[:12],
+                        "rotinas": rotinas.nomes(),
+                        "financas": financas.resumo(),
                         "lembretes": tarefas.lembretes()[:6],
                         "voz": preferencias.carregar(),
                         "google": estado.dados_google(),
@@ -259,6 +291,7 @@ def iniciar(porta: int = 8765, abrir_navegador: bool = True) -> None:
     from rich.console import Console
 
     console = Console()
+    configurar_log()
     servidor, _ = criar_servidor(porta)
     url = f"http://localhost:{porta}/"
     console.print(f"[bold cyan]J.A.R.V.I.S. online[/bold cyan] em [link={url}]{url}[/link]")

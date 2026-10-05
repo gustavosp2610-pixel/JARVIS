@@ -33,6 +33,12 @@ Você:   "Pode."
 | Ver a tela | "o que é isso na minha tela?", "me ajuda com esse erro que apareceu" |
 | Mouse e teclado | "abre o bloco de notas e escreve um poema", "entra no YouTube e coloca o último vídeo do canal X" (ele pede autorização uma vez e faz tudo sozinho) |
 | WhatsApp | "salva o número do João: 11 98765-4321", "manda no WhatsApp pro João que chego em 10 minutos" |
+| Rotinas | "bom dia", "modo trabalho", "modo foco" (botões na tela), "cria a rotina modo jogo: abrir a Steam, abrir o Discord e volume em 70" |
+| Estudos | "resume o PDF da aula que está em Downloads", "faz 10 flashcards desse PDF e salva como anotação", "resume esse artigo: <link>", "começa um pomodoro de 4 ciclos", "traduz o texto que eu copiei" |
+| Anotações | "anota: ideia para o projeto…", "o que eu anotei sobre história?" |
+| Dinheiro | "gastei 45 reais no mercado", "recebi 500 do freela", "quanto gastei esse mês?", "quanto tá o dólar e o bitcoin?" |
+| Dia a dia | "vai chover amanhã?", "previsão para o fim de semana em Santos", "quais as notícias de hoje?", "notícias do Flamengo" |
+| Organizar o PC | "analisa minha pasta Downloads", "organiza meus Downloads" (mostra o plano e pede autorização), "quais arquivos grandes eu tenho?", "limpa os arquivos temporários", "esvazia a lixeira" |
 | Avançado | "roda um comando do PowerShell que mostre meu IP" |
 
 ### Segurança
@@ -89,6 +95,14 @@ python -m jarvis --texto --falar   # digita e ele responde falando
    python -m jarvis --google
    ```
    O navegador vai abrir para você fazer login e autorizar. Pronto, o JARVIS já pode ler e enviar e-mails e mexer na sua agenda.
+
+## Atualizando o JARVIS
+
+Baixe o ZIP de novo, extraia **por cima** da pasta atual (o Windows pergunta se quer substituir: **Substituir**) e dê dois cliques em `instalar_jarvis.bat` para instalar as bibliotecas novas. Seu `.env` (chave e configurações) e a pasta `dados/` (tarefas, gastos, rotinas, memórias) são mantidos, porque o ZIP não traz esses arquivos. Na configuração, responda **Sim** para manter a chave salva.
+
+## Se o Gemini falhar
+
+O plano grátis às vezes fica sobrecarregado. O JARVIS tenta de novo sozinho (até 3 vezes) e, se continuar, usa o modelo reserva (`gemini-flash-lite-latest`). Se mesmo assim falhar, o erro exato aparece na janela preta e no **Registro de operações** da tela.
 
 ## A voz
 

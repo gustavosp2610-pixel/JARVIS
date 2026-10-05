@@ -12,16 +12,20 @@ a convenção que o Gemini usa para apontar coisas em imagens.
 from __future__ import annotations
 
 import base64
+import logging
 import threading
 from typing import Any, Callable
 
 from jarvis import tools
 from jarvis.config import config
-from jarvis.memory import memoria
 from jarvis.personality import system_prompt
 from jarvis.tools.controle import ParadaSolicitada, controle
 
 MAX_PASSOS = 60
+RETENTAVEIS = {429, 500, 502, 503, 504}
+ESPERAS_PRINCIPAL = [2, 4, 8]  # segundos entre novas tentativas no modelo principal
+ESPERAS_RESERVA = [3]
+log = logging.getLogger("jarvis")
 
 _COORD = "Coordenada na escala 0 a 1000 da última captura de ver_tela (0,0 = canto superior esquerdo; 1000,1000 = inferior direito)."
 
@@ -130,6 +134,7 @@ class CerebroGemini:
         self._pedido_atual = ""
         self._ja_viu_tela = False
         self.historico: list[Any] = []
+        self._esperar: Callable[[float], bool] = self.parada.wait  # devolve True se pediram para parar
 
         declaracoes = []
         for nome in sorted(tools.REGISTRO):
@@ -165,25 +170,47 @@ class CerebroGemini:
         self.controle.parar = True
 
     def _mensagem_usuario(self, texto: str) -> Any:
-        from jarvis.brain import _agora
+        from jarvis.contexto import contexto_usuario
 
-        contexto = f"[Agora: {_agora()}]"
-        if not self.historico:
-            fatos = memoria.fatos()
-            if fatos:
-                contexto += "\n[O que você lembra sobre o usuário:\n" + "\n".join(f"- {f}" for f in fatos) + "]"
+        contexto = contexto_usuario(not self.historico)
         return self.types.Content(role="user", parts=[self.types.Part.from_text(text=f"{contexto}\n{texto}")])
 
+    def _chamar_com_reserva(self, **kwargs: Any) -> Any:
+        """generate_content com novas tentativas e modelo reserva quando o Gemini está sobrecarregado."""
+        from google.genai import errors
+
+        modelos = [config.modelo_gemini]
+        if config.modelo_gemini_reserva and config.modelo_gemini_reserva != config.modelo_gemini:
+            modelos.append(config.modelo_gemini_reserva)
+        ultimo: Exception | None = None
+        for i, modelo in enumerate(modelos):
+            esperas = ESPERAS_PRINCIPAL if i == 0 else ESPERAS_RESERVA
+            for tentativa in range(len(esperas) + 1):
+                try:
+                    return self.cliente.models.generate_content(model=modelo, **kwargs)
+                except errors.APIError as e:
+                    ultimo = e
+                    codigo = getattr(e, "code", None)
+                    log.warning("Gemini %s respondeu erro %s: %s", modelo, codigo, getattr(e, "message", e))
+                    if codigo not in RETENTAVEIS:
+                        raise
+                    if codigo == 429 and tentativa >= 1:
+                        break  # cota por minuto: uma nova tentativa só, depois o modelo reserva
+                    if tentativa < len(esperas):
+                        if self._esperar(esperas[tentativa]):
+                            raise  # usuário apertou Parar durante a espera
+            if i + 1 < len(modelos):
+                log.warning("Trocando para o modelo reserva %s", modelos[i + 1])
+        assert ultimo is not None
+        raise ultimo
+
     def _gerar(self) -> Any:
-        return self.cliente.models.generate_content(
-            model=config.modelo_gemini, contents=self.historico, config=self._config
-        )
+        return self._chamar_com_reserva(contents=self.historico, config=self._config)
 
     # -- ferramentas ----------------------------------------------------
     def _pesquisar(self, pergunta: str) -> str:
         t = self.types
-        resp = self.cliente.models.generate_content(
-            model=config.modelo_gemini,
+        resp = self._chamar_com_reserva(
             contents=pergunta,
             config=t.GenerateContentConfig(tools=[t.Tool(google_search=t.GoogleSearch())]),
         )
@@ -321,9 +348,11 @@ class CerebroGemini:
             return "Essa tarefa ficou longa demais, senhor. Parei por segurança."
         except errors.APIError as e:
             del self.historico[inicio:]
+            log.error("Pedido falhou no Gemini (erro %s): %s", getattr(e, "code", "?"), getattr(e, "message", e))
             return _mensagem_erro(e)
         except Exception as e:  # rede, por exemplo
             del self.historico[inicio:]
+            log.exception("Pedido falhou")
             nome = type(e).__name__
             if "Connect" in nome or "Timeout" in nome or "Network" in nome:
                 return "Perdi a conexão com meus servidores, senhor. Verifique a internet."

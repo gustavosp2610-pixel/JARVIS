@@ -210,6 +210,9 @@ def main() -> None:
         return
 
     _checar_chave()
+    from jarvis.web.server import configurar_log
+
+    configurar_log()
     if args.texto:
         modo_texto(com_voz=args.falar)
     elif args.voz:

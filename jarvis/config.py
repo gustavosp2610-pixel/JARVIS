@@ -22,6 +22,9 @@ def _bool(valor: str | None, padrao: bool) -> bool:
 class Config:
     modelo: str = field(default_factory=lambda: os.getenv("JARVIS_MODELO", "claude-opus-5-5"))
     modelo_gemini: str = field(default_factory=lambda: os.getenv("JARVIS_MODELO_GEMINI", "gemini-flash-latest"))
+    modelo_gemini_reserva: str = field(
+        default_factory=lambda: os.getenv("JARVIS_MODELO_GEMINI_RESERVA", "gemini-flash-lite-latest")
+    )
     esforco: str = field(default_factory=lambda: os.getenv("JARVIS_ESFORCO", "medium"))
     nome_usuario: str = field(default_factory=lambda: os.getenv("JARVIS_NOME_USUARIO", "senhor"))
     cidade: str = field(default_factory=lambda: os.getenv("JARVIS_CIDADE", ""))

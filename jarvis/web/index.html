@@ -225,6 +225,26 @@ button, input { font: inherit; color: inherit; }
 .check[aria-checked="true"] { background: var(--arc); box-shadow: 0 0 8px var(--arc); }
 .check[aria-checked="true"]::after { content: "✓"; color: var(--void); font: 700 12px/1 var(--f-body); }
 .lista.tarefas li.feita .tit { text-decoration: line-through; color: var(--ink-dim); }
+/* routines + money */
+.rotinas { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.rotina {
+  display: inline-flex; align-items: center; gap: 7px; padding: 8px 13px; cursor: pointer;
+  border: 1px solid var(--arc-deep); background: rgba(26, 134, 176, 0.14); color: var(--arc-hi);
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  font: 600 11px/1 var(--f-display); letter-spacing: 0.16em; text-transform: uppercase;
+}
+.rotina::before { content: "▶"; font-size: 9px; color: var(--arc); }
+.rotina:hover { background: rgba(95, 227, 255, 0.25); border-color: var(--arc); }
+.fin { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+.fin span { display: block; font: 600 9.5px/1 var(--f-display); letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 6px; }
+.fin b { font: 400 21px/1 var(--f-data); font-variant-numeric: tabular-nums; color: var(--arc-hi); }
+.fin b.neg { color: var(--hot); } .fin b.pos { color: var(--ok); }
+.fin-cats { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.fin-cats li { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; font-size: 13.5px; }
+.fin-cats li .v { font: 400 13px/1.3 var(--f-data); color: var(--ink); }
+.fin-cats li i { grid-column: 1 / -1; height: 4px; background: rgba(21, 64, 92, 0.9); position: relative; }
+.fin-cats li i::after { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--p); background: var(--arc); box-shadow: 0 0 6px var(--arc); }
+
 .subtitulo { margin: 14px 0 8px; font: 600 9.5px/1 var(--f-display); letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-dim); }
 .passos .nota { flex-basis: 100%; font: italic 400 13.5px/1.45 var(--f-body); color: var(--ink-dim); }
 
@@ -447,6 +467,7 @@ body[data-modo="ouvindo"] .estado .t { color: var(--ok); text-shadow: 0 0 12px v
         <div class="leitura l4">Ações executadas<b id="r-acoes">0</b></div>
       </div>
       <div class="estado"><div class="t" id="estado">Aguardando</div><small id="estado-sub">Toque no reator ou no microfone para falar</small></div>
+      <div class="rotinas" id="rotinas" aria-label="Rotinas"></div>
       <div class="painel conversa" id="conversa" aria-live="polite"></div>
     </section>
 
@@ -458,6 +479,14 @@ body[data-modo="ouvindo"] .estado .t { color: var(--ok); text-shadow: 0 0 12px v
       <div class="painel">
         <h2>E-mails não lidos <span class="tag" id="emails-tag"></span></h2>
         <ul class="lista emails" id="emails"></ul>
+      </div>
+      <div class="painel">
+        <h2>Gastos do mês <span class="tag" id="fin-tag"></span></h2>
+        <div class="fin">
+          <div><span>Gasto</span><b id="fin-gastos">R$ 0,00</b></div>
+          <div><span>Saldo</span><b id="fin-saldo">R$ 0,00</b></div>
+        </div>
+        <ul class="fin-cats" id="fin-cats"></ul>
       </div>
       <div class="painel">
         <h2>Registro de operações</h2>
@@ -748,6 +777,8 @@ body[data-modo="ouvindo"] .estado .t { color: var(--ok); text-shadow: 0 0 12px v
     $("#sis-atualizado").textContent = "sinc " + hhmmss().slice(0, 5);
 
     desenharTarefas(p.tarefas || [], p.lembretes || []);
+    desenharRotinas(p.rotinas || []);
+    desenharFinancas(p.financas);
     if (p.voz) vozServidor = p.voz;
 
     lista($("#memorias"), p.memorias, (li, f) => li.append(txt("span", "", f)),
@@ -808,6 +839,42 @@ body[data-modo="ouvindo"] .estado .t { color: var(--ok); text-shadow: 0 0 12px v
       li.append(d);
     }, "Nenhum lembrete. Diga “Jarvis, me lembra de … às 18h”.");
   }
+  let rotinasAtuais = "";
+  function desenharRotinas(nomes) {
+    const chave = JSON.stringify(nomes);
+    if (chave === rotinasAtuais) return;  // não recria os botões à toa
+    rotinasAtuais = chave;
+    $("#rotinas").replaceChildren(...nomes.map((nome) => {
+      const b = document.createElement("button");
+      b.className = "rotina"; b.textContent = nome;
+      b.title = "Executar a rotina " + nome;
+      b.addEventListener("click", () => enviar(`Execute a rotina ${nome}`));
+      return b;
+    }));
+  }
+  const reais = (v) => "R$ " + Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  function desenharFinancas(f) {
+    f = f || { gastos: 0, receitas: 0, saldo: 0, categorias: [], quantidade: 0 };
+    $("#fin-tag").innerHTML = DEMO ? '<span class="exemplo">EXEMPLO</span>' : (f.mes || "");
+    $("#fin-gastos").textContent = reais(f.gastos);
+    const saldo = $("#fin-saldo");
+    saldo.textContent = reais(f.saldo);
+    saldo.className = f.saldo < 0 ? "neg" : f.saldo > 0 ? "pos" : "";
+    const lista = $("#fin-cats");
+    if (!f.quantidade) {
+      lista.replaceChildren(txt("li", "", "Nada anotado este mês. Diga “Jarvis, gastei 30 reais no mercado”."));
+      lista.firstChild.style.display = "block"; lista.firstChild.style.color = "var(--ink-dim)";
+      return;
+    }
+    const maior = Math.max(...f.categorias.map((c) => c[1]), 1);
+    lista.replaceChildren(...f.categorias.slice(0, 4).map(([cat, valor]) => {
+      const li = document.createElement("li");
+      li.append(txt("span", "", cat.charAt(0).toUpperCase() + cat.slice(1)), txt("span", "v", reais(valor)), document.createElement("i"));
+      li.querySelector("i").style.setProperty("--p", Math.round((valor / maior) * 100) + "%");
+      return li;
+    }));
+  }
+
   async function concluirTarefa(t, botao, li) {
     const feita = botao.getAttribute("aria-checked") !== "true";
     botao.setAttribute("aria-checked", String(feita));
@@ -1036,7 +1103,7 @@ body[data-modo="ouvindo"] .estado .t { color: var(--ok); text-shadow: 0 0 12px v
     if (stats.enviadoEm) { stats.latencia = (performance.now() - stats.enviadoEm) / 1000; stats.enviadoEm = 0; }
     if (!jaExibida) addMsg("jarvis", texto, true);
     registrar("resposta entregue", "ok");
-    if (!DEMO) chip("ia", /chave de acesso|problema técnico|conexão/i.test(texto) ? "warn" : "on");
+    if (!DEMO) chip("ia", /chave (de acesso|do gemini)|problema técnico|conexão|limite gratuito|instáveis/i.test(texto) ? "warn" : "on");
     setModo("ocioso");
     falar(paraFala(texto));
     atualizarTicker();
@@ -1048,6 +1115,7 @@ body[data-modo="ouvindo"] .estado .t { color: var(--ok); text-shadow: 0 0 12px v
     if (ev.tipo === "ferramenta") addPasso(ev.nome);
     else if (ev.tipo === "acao_pc") addPasso(ev.texto);
     else if (ev.tipo === "progresso") addNota(ev.texto);
+    else if (ev.tipo === "log") registrar(ev.texto, ev.nivel === "WARNING" ? "aut" : "nao");
     else if (ev.tipo === "resposta") concluirResposta(ev.texto); else if (ev.tipo === "aviso") {
       addMsg("aviso", ev.texto);
       registrar("lembrete: " + ev.texto, "aut");
@@ -1435,6 +1503,9 @@ body[data-modo="ouvindo"] .estado .t { color: var(--ok); text-shadow: 0 0 12px v
       sistema: { sistema: "Windows 11 · dados de exemplo", cpu_percent: Math.max(4, Math.min(88, base + (Math.random() - 0.45) * 18)), ram_percent: 57, disco_livre_gb: 212.4, disco_total_gb: 476, bateria_percent: 81, carregando: false },
       memorias: ["Academia às 7h, de segunda a sexta (exemplo)", "Prefere café sem açúcar (exemplo)"],
       tarefas: demoTarefas,
+      rotinas: ["bom dia", "modo trabalho", "modo foco"],
+      financas: { mes: "", gastos: 1284.9, receitas: 3200, saldo: 1915.1, quantidade: 23,
+                  categorias: [["mercado", 612.4], ["transporte", 289.5], ["lazer", 210], ["contas", 173]] },
       lembretes: [
         { mensagem: "Tirar o bolo do forno", quando: new Date(Date.now() + 25 * 6e4).toISOString(), repetir: "nunca" },
         { mensagem: "Beber água", quando: (() => { const d = new Date(); d.setHours(d.getHours() + 2, 0, 0, 0); return d.toISOString(); })(), repetir: "diario" },

@@ -147,9 +147,12 @@ def test_recusa_de_controle(api_falsa):
 
 
 def test_limite_gratuito_vira_mensagem_amigavel(api_falsa):
-    api = api_falsa([(429, {"error": {"code": 429, "message": "Resource exhausted", "status": "RESOURCE_EXHAUSTED"}})])
+    erro = (429, {"error": {"code": 429, "message": "Resource exhausted", "status": "RESOURCE_EXHAUSTED"}})
+    api = api_falsa([erro] * 4)  # principal: 2 tentativas; reserva: 2 tentativas
     c = CerebroGemini(lambda r: True, cliente=api.cliente, controle_pc=ControleFalso())
+    c._esperar = lambda s: False
     assert "limite gratuito" in c.responder("oi")
+    assert len(api.pedidos) == 4
     assert c.historico == []
 
 
