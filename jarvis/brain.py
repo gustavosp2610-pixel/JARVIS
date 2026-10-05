@@ -183,3 +183,12 @@ class Cerebro:
 
     def nova_conversa(self) -> None:
         self.mensagens.clear()
+
+
+def criar_cerebro(**kwargs: Any) -> Any:
+    """Cria o cérebro configurado: Gemini (grátis) ou Claude (pago por uso)."""
+    if config.ia == "gemini":
+        from jarvis.cerebro_gemini import CerebroGemini
+
+        return CerebroGemini(**kwargs)
+    return Cerebro(**kwargs)

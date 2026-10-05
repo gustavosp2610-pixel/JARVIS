@@ -1,0 +1,5 @@
+# Só para o modo de voz pelo terminal (python -m jarvis --voz).
+# A tela do JARVIS usa o microfone pelo navegador e não precisa disto.
+SpeechRecognition>=3.10
+PyAudio>=0.2.14
+pyttsx3>=2.90

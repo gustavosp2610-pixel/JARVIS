@@ -1,6 +1,13 @@
 @echo off
-rem Clique duas vezes neste arquivo para ligar o JARVIS.
+chcp 65001 >nul
 cd /d "%~dp0"
-if exist ".venv\Scripts\activate.bat" call ".venv\Scripts\activate.bat"
-python -m jarvis
+title J.A.R.V.I.S.
+if not exist ".venv\Scripts\python.exe" goto sem_instalacao
+if not exist ".env" ".venv\Scripts\python.exe" -m jarvis --configurar
+".venv\Scripts\python.exe" -m jarvis
 pause
+exit /b 0
+
+:sem_instalacao
+echo O JARVIS ainda nao foi instalado. Abrindo o instalador...
+call "%~dp0instalar_jarvis.bat"

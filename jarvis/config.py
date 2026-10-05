@@ -21,6 +21,7 @@ def _bool(valor: str | None, padrao: bool) -> bool:
 @dataclass
 class Config:
     modelo: str = field(default_factory=lambda: os.getenv("JARVIS_MODELO", "claude-opus-5-5"))
+    modelo_gemini: str = field(default_factory=lambda: os.getenv("JARVIS_MODELO_GEMINI", "gemini-flash-latest"))
     esforco: str = field(default_factory=lambda: os.getenv("JARVIS_ESFORCO", "medium"))
     nome_usuario: str = field(default_factory=lambda: os.getenv("JARVIS_NOME_USUARIO", "senhor"))
     cidade: str = field(default_factory=lambda: os.getenv("JARVIS_CIDADE", ""))
@@ -35,6 +36,20 @@ class Config:
     )
     pesquisa_web: bool = field(default_factory=lambda: _bool(os.getenv("JARVIS_PESQUISA_WEB"), True))
     pasta_dados: Path = field(default_factory=lambda: Path(os.getenv("JARVIS_PASTA_DADOS", str(RAIZ / "dados"))))
+
+    @property
+    def ia(self) -> str:
+        """Qual cérebro usar: 'gemini' (grátis) ou 'claude' (pago por uso)."""
+        escolhida = os.getenv("JARVIS_IA", "").strip().lower()
+        if escolhida in ("gemini", "claude"):
+            return escolhida
+        if os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"):
+            return "gemini"
+        return "claude"
+
+    @property
+    def modelo_ativo(self) -> str:
+        return self.modelo_gemini if self.ia == "gemini" else self.modelo
 
     def __post_init__(self) -> None:
         self.pasta_dados.mkdir(parents=True, exist_ok=True)

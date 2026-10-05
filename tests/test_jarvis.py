@@ -195,7 +195,7 @@ def test_servidor_web_exige_token_e_host(monkeypatch):
         def nova_conversa(self):
             pass
 
-    monkeypatch.setattr("jarvis.brain.Cerebro", CerebroFalso)
+    monkeypatch.setattr("jarvis.brain.criar_cerebro", CerebroFalso)
     srv, token = server.criar_servidor(porta=0, agendar=False)
     porta = srv.server_address[1]
     threading.Thread(target=srv.serve_forever, daemon=True).start()

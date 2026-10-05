@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-Assistente pessoal no estilo do JARVIS do Homem de Ferro. Você chama ele pelo nome, fala o que quer e ele faz no seu computador, no Gmail e na Google Agenda, respondendo em voz alta. Quem pensa por trás é o Claude (Anthropic).
+Assistente pessoal no estilo do JARVIS do Homem de Ferro. Você chama ele pelo nome, fala o que quer e ele faz no seu computador, no Gmail e na Google Agenda, respondendo em voz alta. Quem pensa por trás é o Google Gemini (grátis) ou, se você preferir, o Claude (Anthropic).
 
 Ao ligar, abre uma **tela estilo HUD** no navegador: o reator arc no centro reage quando ele ouve, pensa e fala; nas laterais ficam o estado do PC (CPU, memória, bateria, disco), sua agenda de hoje, os e-mails não lidos e o que ele lembra sobre você. Ações sensíveis aparecem num aviso de **Autorização necessária**, que você aprova com um clique ou dizendo "sim".
 
@@ -46,33 +46,19 @@ Você:   "Pode."
 - A tela só funciona no seu próprio computador (`localhost`) e usa uma senha nova a cada vez que liga, então outros sites ou pessoas na sua rede não conseguem dar ordens a ele.
 - Sua chave e o login do Google ficam só no seu PC (`.env` e `dados/`), e esses arquivos nunca vão para o Git.
 
-## Instalação no Windows (passo a passo)
+## Instalação no Windows
 
-### 1. Instale o Python
-Baixe o **Python 3.11 ou mais novo** em https://www.python.org/downloads/. Na instalação, marque **"Add python.exe to PATH"**.
+**Passo a passo completo e simples: [COMO_INSTALAR.md](COMO_INSTALAR.md).** Em resumo:
 
-### 2. Baixe o projeto
-```powershell
-git clone https://github.com/gustavosp2610-pixel/JARVIS.git
-cd JARVIS
-```
-(ou baixe o ZIP pelo GitHub e extraia)
+1. Baixe o ZIP do projeto e extraia.
+2. Dê dois cliques em **`instalar_jarvis.bat`**. Ele instala o Python (se faltar) e as bibliotecas, pede sua **chave grátis do Gemini** e testa a voz.
+3. Ligue pelo atalho **JARVIS** na Área de Trabalho (ou `iniciar_jarvis.bat`). A tela abre no navegador em `http://localhost:8765`.
 
-### 3. Crie um ambiente e instale as dependências
-```powershell
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-```
-> Se o `PyAudio` der erro, rode `pip install pipwin` e depois `pipwin install pyaudio`, ou baixe a versão pronta do PyAudio para a sua versão do Python.
+### Quanto custa?
 
-### 4. Pegue sua chave do Claude
-1. Crie uma conta em https://console.anthropic.com e adicione créditos (é cobrado por uso, normalmente centavos por conversa).
-2. Em **API Keys**, crie uma chave.
-3. Copie `.env.example` para `.env` e cole a chave em `ANTHROPIC_API_KEY=`. Aproveite e coloque seu nome e cidade.
+**Nada.** O cérebro padrão é o **Google Gemini** no plano gratuito: só precisa de uma conta Google, sem cartão. O plano grátis tem limite de pedidos por minuto e por dia, suficiente para uso pessoal. A voz (Microsoft Edge) e o reconhecimento de voz (navegador) também são grátis.
 
-### 5. Ligue o JARVIS
-Dê dois cliques em **`iniciar_jarvis.bat`** (ou rode `python -m jarvis`). A tela abre sozinha no navegador em `http://localhost:8765`. Deixe a janela preta aberta, porque é ela que executa as ordens no seu PC.
+Opcional e pago por uso: dá para trocar o cérebro pelo **Claude** (`JARVIS_IA=claude` e `ANTHROPIC_API_KEY` no `.env`). Com o Claude, o controle de mouse e teclado é mais preciso.
 
 Na tela:
 - **Clique no reator ou no microfone** e fale um pedido. Também dá para digitar.
@@ -80,7 +66,11 @@ Na tela:
 - **Sem voz**: ele responde só por escrito.
 - Use o **Chrome ou o Edge** (o reconhecimento de voz funciona neles). Na primeira vez, permita o acesso ao microfone.
 
-Outros modos, sem a tela:
+Para mudar nome, cidade ou a chave depois: `python -m jarvis --configurar`.
+
+> Nos comandos deste README, `python` é o Python do JARVIS: abra o PowerShell na pasta do projeto e use `.venv\Scripts\python.exe` no lugar de `python` (ex.: `.venv\Scripts\python.exe -m jarvis --configurar`).
+
+Outros modos, sem a tela (o modo `--voz` precisa de `pip install -r requirements-opcional.txt`):
 ```powershell
 python -m jarvis --voz             # só voz, no terminal
 python -m jarvis --texto           # conversa digitando no terminal
@@ -147,15 +137,18 @@ def acender_luz(comodo: str) -> str:
 ## Estrutura
 
 ```
+instalar_jarvis.bat instalador de 2 cliques (Windows)
 iniciar_jarvis.bat clique duas vezes para ligar (Windows)
 jarvis/
   main.py          escolhe o modo (tela, voz ou texto)
   web/             a tela HUD (index.html) e o servidor local que a conecta ao PC
-  brain.py         conversa com o Claude e executa as ferramentas (com confirmação)
+  brain.py         cérebro com Claude + criar_cerebro() que escolhe Gemini ou Claude
+  cerebro_gemini.py cérebro grátis com Google Gemini
+  configurar.py    assistente de configuração (--configurar)
   personality.py   personalidade do JARVIS
   memory.py        memória de longo prazo (dados/memoria.json)
   config.py        lê o .env
   voice/           microfone (SpeechRecognition) e fala (edge-tts / pyttsx3)
   tools/           computador, Gmail e Agenda
-tests/             testes automáticos (python -m pytest)
+tests/             testes automáticos (pip install -r requirements-dev.txt; python -m pytest)
 ```

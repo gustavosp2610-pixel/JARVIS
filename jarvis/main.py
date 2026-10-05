@@ -30,10 +30,11 @@ def _eh_sim(resposta: str | None) -> bool:
 
 
 def _checar_chave() -> None:
-    if not os.getenv("ANTHROPIC_API_KEY") and not os.getenv("ANTHROPIC_AUTH_TOKEN"):
+    chaves = ("GEMINI_API_KEY", "GOOGLE_API_KEY", "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN")
+    if not any(os.getenv(c) for c in chaves):
         console.print(
-            "[red]ANTHROPIC_API_KEY não encontrada.[/red] Copie [b].env.example[/b] para [b].env[/b] "
-            "e coloque sua chave (https://console.anthropic.com)."
+            "[red]Nenhuma chave de IA configurada.[/red] Rode [b]python -m jarvis --configurar[/b] "
+            "para colocar sua chave grátis do Gemini (https://aistudio.google.com/apikey)."
         )
         sys.exit(1)
 
@@ -53,7 +54,7 @@ def _mostradores() -> dict:
 
 
 def modo_texto(com_voz: bool) -> None:
-    from jarvis.brain import Cerebro
+    from jarvis.brain import criar_cerebro
     from jarvis.tarefas import Agendador
     from jarvis.tools import computer
 
@@ -72,7 +73,7 @@ def modo_texto(com_voz: bool) -> None:
 
     computer.avisar = aviso
     Agendador(aviso).start()
-    cerebro = Cerebro(confirmar, **_mostradores())
+    cerebro = criar_cerebro(confirmar=confirmar, **_mostradores())
     console.print("[bold cyan]J.A.R.V.I.S. online.[/bold cyan] Digite 'sair' para encerrar.\n")
     while True:
         try:
@@ -101,7 +102,7 @@ def modo_texto(com_voz: bool) -> None:
 
 
 def modo_voz() -> None:
-    from jarvis.brain import Cerebro
+    from jarvis.brain import criar_cerebro
     from jarvis.tarefas import Agendador
     from jarvis.tools import computer
     from jarvis.voice.listener import Ouvinte, extrair_comando
@@ -126,7 +127,7 @@ def modo_voz() -> None:
 
     computer.avisar = dizer
     Agendador(dizer).start()
-    cerebro = Cerebro(confirmar, **_mostradores())
+    cerebro = criar_cerebro(confirmar=confirmar, **_mostradores())
     dizer(f"Sistemas online. Às suas ordens, {config.nome_usuario}.")
     console.print(f"[dim]Diga \"{config.palavra_ativacao.title()}\" seguido do pedido. Ctrl+C para sair.[/dim]")
 
@@ -175,6 +176,7 @@ def main() -> None:
     parser.add_argument("--texto", action="store_true", help="conversar digitando no terminal")
     parser.add_argument("--falar", action="store_true", help="no modo texto, também responder em voz alta")
     parser.add_argument("--google", action="store_true", help="conectar sua conta Google (Gmail/Agenda)")
+    parser.add_argument("--configurar", action="store_true", help="assistente de configuração (chave grátis, nome, voz)")
     parser.add_argument("--testar-voz", action="store_true", help="testa a voz neural e mostra o erro, se houver")
     parser.add_argument("--porta", type=int, default=8765, help="porta da tela (padrão 8765)")
     parser.add_argument("--sem-navegador", action="store_true", help="não abrir o navegador automaticamente")
@@ -185,6 +187,12 @@ def main() -> None:
 
         autorizar(interativo=True)
         console.print("[green]Conta Google conectada![/green]")
+        return
+
+    if args.configurar:
+        from jarvis.configurar import configurar
+
+        configurar()
         return
 
     if args.testar_voz:

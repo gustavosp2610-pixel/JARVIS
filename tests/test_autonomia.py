@@ -349,7 +349,7 @@ def test_rotas_novas_do_servidor(monkeypatch):
         def parar(self):
             paradas.append(True)
 
-    monkeypatch.setattr("jarvis.brain.Cerebro", CerebroFalso)
+    monkeypatch.setattr("jarvis.brain.criar_cerebro", CerebroFalso)
     srv, token = server.criar_servidor(porta=0, agendar=False)
     porta = srv.server_address[1]
     threading.Thread(target=srv.serve_forever, daemon=True).start()

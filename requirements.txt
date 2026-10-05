@@ -1,14 +1,12 @@
-# Cérebro
+# Cérebro (Gemini é grátis; Claude é opcional e pago por uso)
+google-genai>=2.20,<3
 anthropic>=1.11
 python-dotenv>=1.0
 rich>=13.0
 
-# Voz
-SpeechRecognition>=3.10
-PyAudio>=0.2.14
+# Voz (fala neural grátis)
 edge-tts>=7.2
 pygame>=2.5
-pyttsx3>=2.90
 
 # Computador
 psutil>=5.9
@@ -21,6 +19,3 @@ pyautogui>=0.9.54
 google-api-python-client>=2.100
 google-auth-httplib2>=0.2
 google-auth-oauthlib>=1.1
-
-# Testes
-pytest>=8.0

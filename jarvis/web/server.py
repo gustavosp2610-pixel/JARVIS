@@ -92,7 +92,7 @@ class Estado:
 
 def criar_servidor(porta: int = 8765, agendar: bool = True) -> tuple[ThreadingHTTPServer, str]:
     from jarvis import preferencias
-    from jarvis.brain import Cerebro
+    from jarvis.brain import criar_cerebro
     from jarvis.memory import memoria
     from jarvis.tarefas import Agendador, tarefas
     from jarvis.tools import computer
@@ -100,7 +100,7 @@ def criar_servidor(porta: int = 8765, agendar: bool = True) -> tuple[ThreadingHT
 
     token = secrets.token_urlsafe(24)
     estado = Estado()
-    cerebro = Cerebro(
+    cerebro = criar_cerebro(
         confirmar=estado.confirmar,
         ao_usar_ferramenta=lambda nome: estado.publicar("ferramenta", nome=nome),
         ao_progresso=lambda texto: estado.publicar("progresso", texto=texto),
@@ -182,7 +182,7 @@ def criar_servidor(porta: int = 8765, agendar: bool = True) -> tuple[ThreadingHT
                 return self._json(
                     {
                         "nome": config.nome_usuario,
-                        "modelo": config.modelo,
+                        "modelo": config.modelo_ativo,
                         "sistema": info_sistema(),
                         "memorias": memoria.fatos(),
                         "tarefas": tarefas.tarefas(incluir_feitas=False)[:12],
