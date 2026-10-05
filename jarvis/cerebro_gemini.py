@@ -276,7 +276,7 @@ class CerebroGemini:
             if nome not in SOMENTE_LEITURA_PC:
                 if self._pc_autorizado is None:
                     self._pc_autorizado = self.confirmar(
-                        f"controlar_mouse_e_teclado(tarefa={self._pedido_atual[:160]!r})"
+                        f"controlar_mouse_e_teclado(tarefa: {self._pedido_atual[:160]})"
                     )
                 if not self._pc_autorizado:
                     return {"erro": "O usuário NÃO autorizou usar o mouse e o teclado neste pedido. Não tente de novo."}, []
@@ -297,6 +297,10 @@ class CerebroGemini:
         f = tools.REGISTRO.get(nome)
         if f is None:
             return {"erro": f"Função desconhecida: {nome}"}, []
+        try:
+            args = tools.preparar(nome, args)
+        except ValueError as e:
+            return {"erro": str(e)}, []
         if f.risco == tools.CONFIRMAR and not self.confirmar(f.resumo(args)):
             return {"erro": "O usuário NÃO autorizou esta ação. Não a execute por outro meio."}, []
         self.ao_usar_ferramenta(nome)

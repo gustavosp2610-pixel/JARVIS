@@ -110,7 +110,7 @@ def test_ferramenta_sensivel_pede_confirmacao_e_respeita_recusa(registrar_teste)
     perguntas = []
     c = Cerebro(confirmar=lambda r: perguntas.append(r) or False, cliente=cliente)
     c.responder("apaga")
-    assert perguntas == ["_teste_perigoso(x='b')"]
+    assert perguntas == ["_teste_perigoso(x: b)"]
     assert registrar_teste == []
     assert "NÃO autorizou" in cliente.chamadas[1]["messages"][-1]["content"][0]["content"]
 

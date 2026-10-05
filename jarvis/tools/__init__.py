@@ -25,6 +25,9 @@ class Ferramenta:
     obrigatorios: list[str]
     risco: str
     funcao: Callable[..., Any]
+    # Ajusta os argumentos ANTES da confirmação (ex.: limpar um e-mail ditado), para o usuário
+    # autorizar exatamente o que vai ser executado. Pode levantar ValueError com uma explicação.
+    normalizar: Callable[[dict[str, Any]], dict[str, Any]] | None = None
 
     def schema(self) -> dict[str, Any]:
         return {
@@ -39,9 +42,9 @@ class Ferramenta:
         }
 
     def resumo(self, entrada: dict[str, Any]) -> str:
-        """Texto curto descrevendo a ação, usado no pedido de confirmação."""
-        args = ", ".join(f"{k}={v!r}" for k, v in entrada.items())
-        return f"{self.nome}({args})"
+        """Descrição da ação para o pedido de confirmação: 'nome(campo: valor\ncampo: valor)'."""
+        linhas = "\n".join(f"{k}: {v}" for k, v in entrada.items())
+        return f"{self.nome}({linhas})"
 
 
 REGISTRO: dict[str, Ferramenta] = {}
@@ -53,6 +56,7 @@ def ferramenta(
     parametros: dict[str, Any] | None = None,
     obrigatorios: list[str] | None = None,
     risco: str = SEGURO,
+    normalizar: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     def decorador(funcao: Callable[..., Any]) -> Callable[..., Any]:
         REGISTRO[nome] = Ferramenta(
@@ -62,6 +66,7 @@ def ferramenta(
             obrigatorios=obrigatorios or [],
             risco=risco,
             funcao=funcao,
+            normalizar=normalizar,
         )
         return funcao
 
@@ -71,6 +76,14 @@ def ferramenta(
 def schemas() -> list[dict[str, Any]]:
     """Schemas em ordem estável (ordem fixa mantém o cache de prompt válido)."""
     return [REGISTRO[nome].schema() for nome in sorted(REGISTRO)]
+
+
+def preparar(nome: str, entrada: dict[str, Any]) -> dict[str, Any]:
+    """Aplica a normalização da ferramenta (se houver). Chamado antes de confirmar e executar."""
+    f = REGISTRO.get(nome)
+    if f is None or f.normalizar is None:
+        return entrada
+    return f.normalizar(dict(entrada))
 
 
 def executar(nome: str, entrada: dict[str, Any]) -> str:

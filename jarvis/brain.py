@@ -74,7 +74,7 @@ class Cerebro:
     def _autorizar_pc(self) -> bool:
         """Uma autorização por pedido para usar mouse e teclado."""
         if self._pc_autorizado is None:
-            self._pc_autorizado = self.confirmar(f"controlar_mouse_e_teclado(tarefa={self._pedido_atual[:160]!r})")
+            self._pc_autorizado = self.confirmar(f"controlar_mouse_e_teclado(tarefa: {self._pedido_atual[:160]})")
         return self._pc_autorizado
 
     def _executar_pc(self, bloco: Any, falhou: bool) -> tuple[dict[str, Any], bool]:
@@ -105,6 +105,12 @@ class Cerebro:
             f = tools.REGISTRO.get(bloco.name)
             entrada = dict(bloco.input or {})
             resultado = {"type": "tool_result", "tool_use_id": bloco.id}
+            if f is not None:
+                try:
+                    entrada = tools.preparar(bloco.name, entrada)
+                except ValueError as e:
+                    resultados.append(resultado | {"content": f"Erro: {e}", "is_error": True})
+                    continue
             if f is None:
                 resultado |= {"content": f"Ferramenta desconhecida: {bloco.name}", "is_error": True}
             elif f.risco == tools.CONFIRMAR and not self.confirmar(f.resumo(entrada)):

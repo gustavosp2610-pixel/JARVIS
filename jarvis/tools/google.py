@@ -9,6 +9,10 @@ Configuração (uma vez só — passo a passo no README):
 from __future__ import annotations
 
 import base64
+import imaplib
+import json
+import smtplib
+import re
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from functools import lru_cache
@@ -88,6 +92,9 @@ def _protegido(func):
             return func(*args, **kwargs)
         except GoogleNaoConfigurado as e:
             return str(e)
+        except (smtplib.SMTPAuthenticationError, imaplib.IMAP4.error):
+            return ("O Google recusou a senha de app do Gmail. Peça ao usuário para rodar "
+                    "python -m jarvis --gmail e criar uma senha de app nova.")
         except ImportError:
             return "Bibliotecas do Google não instaladas (pip install -r requirements.txt)."
 
@@ -97,8 +104,86 @@ def _protegido(func):
 
 
 # ---------------------------------------------------------------------------
-# Gmail
+# Gmail — usa o OAuth (python -m jarvis --google) se existir; senão a senha de app
+# (python -m jarvis --gmail, ver jarvis/tools/gmail_simples.py).
 # ---------------------------------------------------------------------------
+
+ARQUIVO_EMAILS = config.pasta_dados / "emails.json"
+SEM_GMAIL = (
+    "O Gmail ainda não está conectado. Peça ao usuário para rodar o instalar_jarvis.bat "
+    "(ou python -m jarvis --gmail) e colar a senha de app do Google."
+)
+
+
+def _usar_oauth() -> bool:
+    return TOKEN.exists()
+
+
+def _sem_acento(texto: str) -> str:
+    import unicodedata
+
+    return unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode().lower().strip()
+
+
+def emails_contatos() -> dict[str, str]:
+    try:
+        return json.loads(ARQUIVO_EMAILS.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def resolver_destinatarios(para: str) -> list[str]:
+    """'meu pai, maria@x.com' -> endereços. Nomes vêm da agenda de e-mails; endereços ditados são limpos."""
+    from jarvis.tools.gmail_simples import limpar_endereco
+
+    contatos = {_sem_acento(n): e for n, e in emails_contatos().items()}
+    enderecos = []
+    for item in re.split(r"[,;]| e (?=\S+@)", para):
+        item = item.strip()
+        if not item:
+            continue
+        chave = _sem_acento(item).removeprefix("o ").removeprefix("a ")
+        if "@" not in item and "arroba" not in chave:
+            achado = contatos.get(chave) or next((e for n, e in contatos.items() if chave and chave in n), None)
+            if not achado:
+                raise ValueError(
+                    f"Não tenho o e-mail de '{item}'. Pergunte o endereço ao usuário e salve com salvar_email_contato."
+                )
+            enderecos.append(achado)
+        else:
+            enderecos.append(limpar_endereco(item))
+    if not enderecos:
+        raise ValueError("Faltou o destinatário do e-mail.")
+    return enderecos
+
+
+def _normalizar_envio(entrada: dict[str, Any]) -> dict[str, Any]:
+    entrada["para"] = ", ".join(resolver_destinatarios(str(entrada.get("para", ""))))
+    return entrada
+
+
+@ferramenta(
+    "salvar_email_contato",
+    "Salva o e-mail de uma pessoa para mandar e-mails pelo nome depois (ex.: nome 'meu pai').",
+    {"nome": {"type": "string", "description": "Como o usuário chama a pessoa: 'meu pai', 'Carlos'..."},
+     "email": {"type": "string"}},
+    ["nome", "email"],
+)
+def salvar_email_contato(nome: str, email: str) -> str:
+    from jarvis.tools.gmail_simples import limpar_endereco
+
+    endereco = limpar_endereco(email)
+    contatos = emails_contatos()
+    contatos[nome.strip().lower()] = endereco
+    ARQUIVO_EMAILS.parent.mkdir(parents=True, exist_ok=True)
+    ARQUIVO_EMAILS.write_text(json.dumps(contatos, ensure_ascii=False, indent=2), encoding="utf-8")
+    return f"E-mail salvo: {nome} = {endereco}."
+
+
+@ferramenta("listar_emails_contatos", "Lista os e-mails de contatos salvos.")
+def listar_emails_contatos() -> str:
+    contatos = emails_contatos()
+    return "\n".join(f"- {n}: {e}" for n, e in sorted(contatos.items())) or "Nenhum e-mail de contato salvo."
 
 
 @ferramenta(
@@ -112,8 +197,14 @@ def _protegido(func):
 )
 @_protegido
 def ler_emails_recentes(filtro: str | None = None, quantidade: int | None = None) -> Any:
-    gmail = _servico("gmail", "v1")
     qtd = max(1, min(20, quantidade or 5))
+    if not _usar_oauth():
+        from jarvis.tools import gmail_simples
+
+        if not gmail_simples.configurado():
+            return SEM_GMAIL
+        return gmail_simples.recentes(filtro or "in:inbox", qtd) or "Nenhum e-mail encontrado."
+    gmail = _servico("gmail", "v1")
     resp = gmail.users().messages().list(userId="me", q=filtro or "in:inbox", maxResults=qtd).execute()
     emails = []
     for item in resp.get("messages", []):
@@ -141,6 +232,12 @@ def ler_emails_recentes(filtro: str | None = None, quantidade: int | None = None
 )
 @_protegido
 def ler_email(id: str) -> Any:
+    if not _usar_oauth():
+        from jarvis.tools import gmail_simples
+
+        if not gmail_simples.configurado():
+            return SEM_GMAIL
+        return gmail_simples.ler(id)
     msg = _servico("gmail", "v1").users().messages().get(userId="me", id=id, format="full").execute()
     return {
         "de": _cabecalho(msg, "From"),
@@ -153,23 +250,37 @@ def ler_email(id: str) -> Any:
 
 @ferramenta(
     "enviar_email",
-    "Envia um e-mail pelo Gmail do usuário.",
+    "Envia um e-mail pelo Gmail do usuário. Escreva o assunto e o texto no tom que o usuário pediu "
+    "(assine com o nome dele se souber). O usuário vê o e-mail pronto e confirma antes do envio.",
     {
-        "para": {"type": "string", "description": "Endereço de e-mail do destinatário."},
+        "para": {
+            "type": "string",
+            "description": "Endereço(s) separados por vírgula, ou o nome de um contato salvo (ex.: 'meu pai'). "
+            "Endereços ditados por voz podem vir com espaços; mande como ouviu.",
+        },
         "assunto": {"type": "string"},
         "corpo": {"type": "string"},
     },
     ["para", "assunto", "corpo"],
     risco=CONFIRMAR,
+    normalizar=_normalizar_envio,
 )
 @_protegido
 def enviar_email(para: str, assunto: str, corpo: str) -> str:
+    destinatarios = resolver_destinatarios(para)
+    if not _usar_oauth():
+        from jarvis.tools import gmail_simples
+
+        if not gmail_simples.configurado():
+            return SEM_GMAIL
+        gmail_simples.enviar(destinatarios, assunto, corpo)
+        return f"E-mail enviado para {', '.join(destinatarios)}."
     mime = MIMEText(corpo, "plain", "utf-8")
-    mime["to"] = para
+    mime["to"] = ", ".join(destinatarios)
     mime["subject"] = assunto
     raw = base64.urlsafe_b64encode(mime.as_bytes()).decode()
     _servico("gmail", "v1").users().messages().send(userId="me", body={"raw": raw}).execute()
-    return f"E-mail enviado para {para}."
+    return f"E-mail enviado para {', '.join(destinatarios)}."
 
 
 # ---------------------------------------------------------------------------

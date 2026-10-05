@@ -75,18 +75,20 @@ class Estado:
         agora = time.time()
         if self._cache_google and agora - self._cache_google[0] < 120:
             return self._cache_google[1]
-        from jarvis.tools import google
+        from jarvis.tools import gmail_simples, google
 
         dados: dict[str, Any] = {"conectado": google.TOKEN.exists()}
+        dados["gmail"] = dados["conectado"] or gmail_simples.configurado()
+        tarefas_google = []
         if dados["conectado"]:
-            for chave, func, kwargs in (
-                ("agenda", google.ver_agenda, {"dias": 1}),
-                ("emails", google.ler_emails_recentes, {"filtro": "is:unread in:inbox", "quantidade": 6}),
-            ):
-                try:
-                    dados[chave] = func(**kwargs)
-                except Exception as e:  # sem internet, token expirado...
-                    dados[chave] = f"Não consegui carregar: {e}"
+            tarefas_google.append(("agenda", google.ver_agenda, {"dias": 1}))
+        if dados["gmail"]:
+            tarefas_google.append(("emails", google.ler_emails_recentes, {"filtro": "is:unread in:inbox", "quantidade": 6}))
+        for chave, func, kwargs in tarefas_google:
+            try:
+                dados[chave] = func(**kwargs)
+            except Exception as e:  # sem internet, senha trocada...
+                dados[chave] = f"Não consegui carregar: {e}"
         self._cache_google = (agora, dados)
         return dados
 

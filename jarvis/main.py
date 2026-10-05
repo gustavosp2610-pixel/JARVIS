@@ -176,6 +176,7 @@ def main() -> None:
     parser.add_argument("--texto", action="store_true", help="conversar digitando no terminal")
     parser.add_argument("--falar", action="store_true", help="no modo texto, também responder em voz alta")
     parser.add_argument("--google", action="store_true", help="conectar sua conta Google (Gmail/Agenda)")
+    parser.add_argument("--gmail", action="store_true", help="conectar o Gmail com uma senha de app")
     parser.add_argument("--configurar", action="store_true", help="assistente de configuração (chave grátis, nome, voz)")
     parser.add_argument("--testar-voz", action="store_true", help="testa a voz neural e mostra o erro, se houver")
     parser.add_argument("--porta", type=int, default=8765, help="porta da tela (padrão 8765)")
@@ -187,6 +188,12 @@ def main() -> None:
 
         autorizar(interativo=True)
         console.print("[green]Conta Google conectada![/green]")
+        return
+
+    if args.gmail:
+        from jarvis.configurar import configurar_gmail
+
+        configurar_gmail()
         return
 
     if args.configurar:

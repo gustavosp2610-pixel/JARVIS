@@ -341,7 +341,7 @@ body[data-modo="ouvindo"] .estado .t { color: var(--ok); text-shadow: 0 0 12px v
 .autorizacao h3 { margin: 0; display: flex; align-items: center; gap: 10px; font: 800 13px/1.2 var(--f-title); letter-spacing: 0.22em; text-transform: uppercase; color: var(--gold); }
 .autorizacao h3::before { content: "⚠"; font-size: 18px; animation: piscar 1s steps(1) infinite; }
 .autorizacao .acao { margin: 14px 0 6px; font: 700 22px/1.25 var(--f-display); text-transform: capitalize; text-wrap: balance; }
-.autorizacao .det { margin: 0; font: 400 13px/1.5 var(--f-data); color: var(--ink-dim); overflow-wrap: anywhere; max-height: 160px; overflow-y: auto; }
+.autorizacao .det { margin: 0; font: 400 14px/1.55 var(--f-body); color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 280px; overflow-y: auto; padding: 10px 12px; background: rgba(2, 5, 10, 0.5); border-left: 2px solid var(--gold); }
 .autorizacao .botoes { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
 .autorizacao button { flex: 1 1 140px; padding: 13px; cursor: pointer; font: 700 12px/1 var(--f-display); letter-spacing: 0.24em; text-transform: uppercase; }
 .autorizacao .sim { background: var(--gold); border: 1px solid var(--gold); color: var(--void); box-shadow: 0 0 18px rgba(255, 184, 64, 0.5); }
@@ -787,21 +787,18 @@ body[data-modo="ouvindo"] .estado .t { color: var(--ok); text-shadow: 0 0 12px v
     const g = p.google || {};
     const exemplo = DEMO ? '<span class="exemplo">EXEMPLO</span>' : "";
     $("#agenda-tag").innerHTML = exemplo; $("#emails-tag").innerHTML = exemplo;
-    chip("google", g.conectado ? "on" : "warn");
+    chip("google", g.conectado || g.gmail ? "on" : "warn");
     atualizarTicker();
-    if (!g.conectado) {
-      const msg = "Google não conectado. Rode python -m jarvis --google para ver sua agenda e seus e-mails aqui.";
-      lista($("#agenda"), msg); lista($("#emails"), msg);
-      return;
-    }
-    lista($("#agenda"), g.agenda, (li, e) => {
+    if (!g.conectado) lista($("#agenda"), "Agenda não conectada. Para ver seus compromissos aqui, conecte a Google Agenda (veja o README).");
+    if (!g.gmail) lista($("#emails"), "Gmail não conectado. Rode o instalar_jarvis.bat de novo e conecte o Gmail com uma senha de app.");
+    if (g.conectado) lista($("#agenda"), g.agenda, (li, e) => {
       li.append(txt("span", "quando", horaDe(e.inicio)));
       const d = document.createElement("div");
       d.append(txt("div", "tit", e.titulo));
       if (e.local) d.append(txt("div", "sub", e.local));
       li.append(d);
     }, "Nenhum compromisso hoje.");
-    lista($("#emails"), g.emails, (li, m) => {
+    if (g.gmail) lista($("#emails"), g.emails, (li, m) => {
       li.append(txt("div", "tit", m.assunto || "(sem assunto)"));
       li.append(txt("div", "sub", (m.de || "").replace(/<.*>/, "").trim()));
     }, "Caixa de entrada em dia.");
@@ -1512,6 +1509,7 @@ body[data-modo="ouvindo"] .estado .t { color: var(--ok); text-shadow: 0 0 12px v
       ],
       google: {
         conectado: true,
+        gmail: true,
         agenda: [
           { titulo: "Reunião com a equipe", inicio: iso(10, 0), local: "Google Meet" },
           { titulo: "Almoço com a Ana", inicio: iso(12, 30), local: "Centro" },
@@ -1596,7 +1594,7 @@ Contexto: esta é a versão online de demonstração do JARVIS. Aqui você não 
     if (/(manda|envia|enviar|mande).*(e-?mail)|(e-?mail).*(pro|para)/.test(n)) {
       await passos("ler_emails_recentes");
       demoAposDecidir = (ok) => ok ? "E-mail enviado, senhor. Aqui na demonstração, claro; no seu PC ele sairia de verdade." : "Entendido, nada foi enviado.";
-      return tratarEvento({ tipo: "confirmar", id: "demo", acao: "enviar email", detalhes: "para='carlos@exemplo.com', assunto='Atraso', corpo='Oi Carlos, vou me atrasar uns 15 minutos.'" });
+      return tratarEvento({ tipo: "confirmar", id: "demo", acao: "enviar email", detalhes: "para: carlos@exemplo.com\nassunto: Atraso\ncorpo: Oi Carlos, vou me atrasar uns 15 minutos. Abraço, Gustavo." });
     }
     if (/(apaga|deleta|exclui|desliga|reinicia)/.test(n)) {
       demoAposDecidir = (ok) => ok ? "Feito, senhor. Nesta demonstração nada foi alterado de verdade." : "Cancelado. Nada foi alterado.";

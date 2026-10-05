@@ -28,7 +28,8 @@ São 3 passos. Leva uns 10 minutos, quase tudo esperando o download.
    - clique em **Create API key / Criar chave de API** e copie a chave;
    - volte na janela preta e cole com **botão direito do mouse**, depois aperte **Enter**.
    O instalador testa a chave na hora e avisa se tiver algo errado.
-3. **Teste da voz**: você deve ouvir "Sistemas de voz online. Às suas ordens, senhor."
+3. **Gmail** (opcional): ele oferece conectar seu Gmail com uma "senha de app". Siga as instruções da janela, é rápido.
+4. **Teste da voz**: você deve ouvir "Sistemas de voz online. Às suas ordens, senhor."
 
 No final ele cria o atalho **JARVIS** na Área de Trabalho. É só dar dois cliques nele para ligar.
 

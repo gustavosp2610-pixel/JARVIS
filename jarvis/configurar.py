@@ -18,6 +18,44 @@ from jarvis.config import RAIZ
 console = Console()
 ARQUIVO_ENV = RAIZ / ".env"
 LINK_CHAVE = "https://aistudio.google.com/apikey"
+LINK_SENHA_APP = "https://myaccount.google.com/apppasswords"
+
+
+def configurar_gmail() -> bool:
+    """Conecta o Gmail com uma senha de app. Devolve True se ficou conectado."""
+    from jarvis.tools.gmail_simples import limpar_endereco, testar_login
+
+    atual = ler_env()
+    console.print(
+        "\n[bold cyan]Conectar o Gmail[/bold cyan] (para o JARVIS ler e enviar e-mails)\n"
+        "Você vai criar uma [b]senha de app[/b]: uma senha especial só para o JARVIS. "
+        "Sua conta Google precisa estar com a [b]verificação em duas etapas[/b] ligada.\n"
+        f"1. Vou abrir [link={LINK_SENHA_APP}]{LINK_SENHA_APP}[/link].\n"
+        "2. Em 'Nome do app' digite [b]JARVIS[/b] e clique em [b]Criar[/b].\n"
+        "3. Copie a senha de 16 letras que aparecer e cole aqui.\n"
+        "   (Se a página disser que a opção não está disponível, ligue antes a verificação em duas etapas em\n"
+        "    myaccount.google.com → Segurança.)\n"
+    )
+    webbrowser.open(LINK_SENHA_APP)
+    while True:
+        endereco = Prompt.ask("Seu endereço do Gmail", default=atual.get("GMAIL_ENDERECO") or None)
+        try:
+            endereco = limpar_endereco(endereco or "")
+            break
+        except ValueError as e:
+            console.print(f"[red]{e}[/red]")
+    senha = Prompt.ask("Cole a senha de app (16 letras)").replace(" ", "").strip()
+    console.print("Testando o login no Gmail…")
+    erro = testar_login(endereco, senha)
+    if erro:
+        console.print(f"[red]{erro}[/red]")
+        if not Confirm.ask("Salvar mesmo assim?", default=False):
+            return False
+    else:
+        console.print("[green]Gmail conectado![/green]")
+    gravar_env({"GMAIL_ENDERECO": endereco, "GMAIL_SENHA_APP": senha})
+    os.environ.update({"GMAIL_ENDERECO": endereco, "GMAIL_SENHA_APP": senha})
+    return not erro
 
 
 def ler_env(arquivo: Path = ARQUIVO_ENV) -> dict[str, str]:
@@ -102,6 +140,12 @@ def configurar() -> None:
     )
     os.environ.update({"GEMINI_API_KEY": chave, "JARVIS_IA": "gemini"})
     console.print(f"[green]Configuração salva em[/green] {ARQUIVO_ENV}")
+
+    if atual.get("GMAIL_SENHA_APP"):
+        if not Confirm.ask("O Gmail já está conectado. Manter assim?", default=True):
+            configurar_gmail()
+    elif Confirm.ask("Quer conectar o Gmail agora (para ele ler e enviar e-mails)?", default=True):
+        configurar_gmail()
 
     if Confirm.ask("Quer testar a voz agora?", default=True):
         from jarvis.voice.speaker import testar_voz

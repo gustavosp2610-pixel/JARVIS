@@ -83,7 +83,19 @@ python -m jarvis --texto           # conversa digitando no terminal
 python -m jarvis --texto --falar   # digita e ele responde falando
 ```
 
-## Conectar Gmail e Agenda (opcional, uma vez só)
+## Conectar o Gmail (2 minutos)
+
+Para o JARVIS ler e enviar seus e-mails ("manda um e-mail pro meu pai dizendo que está tudo bem"):
+
+1. Sua conta Google precisa estar com a **verificação em duas etapas** ligada (myaccount.google.com → Segurança).
+2. Abra o PowerShell na pasta do JARVIS e rode `.venv\Scripts\python.exe -m jarvis --gmail`. O instalador também oferece esse passo.
+3. Ele abre https://myaccount.google.com/apppasswords. Em "Nome do app" digite **JARVIS**, clique em **Criar** e copie a senha de 16 letras.
+4. Cole a senha. Ele testa o login na hora e salva no `.env`.
+5. Reinicie o JARVIS.
+
+Antes de enviar, ele sempre mostra o e-mail pronto (**para, assunto e texto**) e só envia quando você autoriza. Para não ditar endereços toda vez: "o e-mail do meu pai é anderson@gmail.com". Depois é só dizer "manda um e-mail pro meu pai…".
+
+## Conectar a Google Agenda (opcional, mais trabalhoso)
 
 1. Acesse https://console.cloud.google.com e crie um projeto (ex.: "Jarvis").
 2. Em **APIs e serviços → Biblioteca**, ative **Gmail API** e **Google Calendar API**.
