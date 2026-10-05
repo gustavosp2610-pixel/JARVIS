@@ -1,4 +1,5 @@
 @echo off
+rem JARVIS-BAT-SEGURO
 chcp 65001 >nul
 cd /d "%~dp0"
 title Conectar o Gmail ao JARVIS

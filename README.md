@@ -110,9 +110,14 @@ Antes de enviar, ele sempre mostra o e-mail pronto (**para, assunto e texto**) e
    ```
    O navegador vai abrir para você fazer login e autorizar. Pronto, o JARVIS já pode ler e enviar e-mails e mexer na sua agenda.
 
-## Atualizando o JARVIS
+## Atualizações automáticas
 
-Baixe o ZIP de novo, extraia **por cima** da pasta atual (o Windows pergunta se quer substituir: **Substituir**) e dê dois cliques em `instalar_jarvis.bat` para instalar as bibliotecas novas. Seu `.env` (chave e configurações) e a pasta `dados/` (tarefas, gastos, rotinas, memórias) são mantidos, porque o ZIP não traz esses arquivos. Na configuração, responda **Sim** para manter a chave salva.
+Toda vez que você abre o JARVIS pelo atalho, ele confere no GitHub se existe uma versão nova. Se existir, baixa e aplica sozinho, depois abre já atualizado. Você vê "Baixando atualização: …" na janela preta.
+
+- Seu `.env` (chave do Gemini, senha do Gmail), a pasta `dados/` (tarefas, gastos, rotinas, memórias) e as bibliotecas (`.venv`) **nunca são trocados**.
+- Se a atualização trouxer bibliotecas novas, ele instala sozinho.
+- Sem internet, ele só abre a versão que já tem.
+- Para desligar: `JARVIS_ATUALIZAR_SOZINHO=false` no `.env`.
 
 ## Se o Gemini falhar
 

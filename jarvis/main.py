@@ -179,6 +179,7 @@ def main() -> None:
     parser.add_argument("--gmail", action="store_true", help="conectar o Gmail com uma senha de app")
     parser.add_argument("--configurar", action="store_true", help="assistente de configuração (chave grátis, nome, voz)")
     parser.add_argument("--testar-voz", action="store_true", help="testa a voz neural e mostra o erro, se houver")
+    parser.add_argument("--sem-atualizar", action="store_true", help="não procurar versão nova ao abrir")
     parser.add_argument("--porta", type=int, default=8765, help="porta da tela (padrão 8765)")
     parser.add_argument("--sem-navegador", action="store_true", help="não abrir o navegador automaticamente")
     args = parser.parse_args()
@@ -215,6 +216,15 @@ def main() -> None:
         else:
             console.print("[green]Voz neural funcionando![/green]")
         return
+
+    if not args.sem_atualizar:
+        from jarvis.atualizar import atualizar_se_preciso
+
+        if atualizar_se_preciso(lambda t: console.print(f"[cyan]{t}[/cyan]")):
+            # código novo baixado: reabre o JARVIS já com ele
+            import subprocess
+
+            sys.exit(subprocess.call([sys.executable, "-m", "jarvis", "--sem-atualizar", *sys.argv[1:]]))
 
     _checar_chave()
     from jarvis.web.server import configurar_log
