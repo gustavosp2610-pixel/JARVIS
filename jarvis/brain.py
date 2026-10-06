@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import threading
 from datetime import datetime
 from typing import Any, Callable
@@ -13,6 +14,7 @@ from jarvis.config import config
 from jarvis.personality import system_prompt
 from jarvis.tools.controle import NAO_EXECUTADO, SOMENTE_LEITURA, TOOLSET, ParadaSolicitada, controle
 
+log = logging.getLogger("jarvis")
 MAX_PASSOS = 60  # limite de idas e voltas com ferramentas por pedido (tarefas no PC usam muitas)
 BETAS = ["server-side-fallback-2026-07-01", "thinking-display-updates-2026-08-18"]
 
@@ -120,8 +122,10 @@ class Cerebro:
                 try:
                     resultado["content"] = tools.executar(bloco.name, entrada) or "Feito."
                 except tools.FalhaFerramenta as e:
+                    log.warning("%s falhou: %s", bloco.name, e)
                     resultado |= {"content": tools.PREFIXO_FALHA + str(e), "is_error": True}
                 except Exception as e:  # o erro volta para o Claude explicar/tentar outra coisa
+                    log.warning("%s falhou: %s: %s", bloco.name, type(e).__name__, e)
                     resultado |= {"content": f"{tools.PREFIXO_FALHA}{type(e).__name__}: {e}", "is_error": True}
             resultados.append(resultado)
         return resultados

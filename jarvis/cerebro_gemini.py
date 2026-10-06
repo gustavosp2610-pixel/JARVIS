@@ -325,8 +325,10 @@ class CerebroGemini:
         try:
             return {"resultado": tools.executar(nome, args) or "Feito."}, []
         except tools.FalhaFerramenta as e:
+            log.warning("%s falhou: %s", nome, e)
             return {"erro": tools.PREFIXO_FALHA + str(e)}, []
         except Exception as e:
+            log.warning("%s falhou: %s: %s", nome, type(e).__name__, e)
             return {"erro": f"{tools.PREFIXO_FALHA}{type(e).__name__}: {e}"}, []
 
     # ------------------------------------------------------------------
